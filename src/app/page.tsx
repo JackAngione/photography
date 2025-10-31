@@ -1,20 +1,21 @@
-import Image from "next/image";
-import bgImage from "../../public/images/website_background.jpg";
-import AnimatedButton from "@/components/ui/animatedButton";
+import MarbledGradientButton from "@/components/ui/marbledbutton";
+import Link from "next/link";
 
 export default function Home() {
   return (
     <>
-      <div className="flex-col items-center justify-start">
-        <div className="scale-x-65 origin-left">
+      <div className="flex-col items-center justify-start pl-[3vw] md:pl-[10vw]">
+        <div className="scale-x-65 origin-left ">
           <h1 className="!font-matisse">JACK</h1>
           <h1 className=" !font-matisse">ANGIONE</h1>
         </div>
 
         <h1 className="!text-8xl ">PHOTOGRAPHY</h1>
       </div>
-      <div>
-        <AnimatedButton text="GALLERY" />
+      <div className="relative flex justify-center">
+        <Link href="/gallery">
+          <MarbledGradientButton text="GALLERY" />
+        </Link>
       </div>
     </>
   );

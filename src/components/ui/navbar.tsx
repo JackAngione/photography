@@ -2,19 +2,19 @@ import Link from "next/link";
 
 export default function Navbar() {
   return (
-    <nav className="flex flex-col items-end ">
-      <Link className="hover:text-amber-600 " href="/">
+    <nav className="flex flex-col items-end px-8">
+      <Link className="hover:text-accent " href="/">
         HOME
       </Link>
-      <Link className="hover:text-amber-600 " href="/about">
-        ABOUT
-      </Link>
       {/*TODO: make this a little dropdown with socails/email*/}
-      <Link className="hover:text-amber-600 " href="/gallery">
+      <Link className="hover:text-accent " href="/gallery">
         GALLERY
       </Link>
-      <Link className="hover:text-amber-600 " href="/contact">
+      <Link className="" href="/contact">
         CONTACT
+      </Link>
+      <Link className="" href="/booking">
+        BOOKING
       </Link>
     </nav>
   );
