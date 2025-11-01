@@ -4,8 +4,8 @@ import { motion } from "motion/react";
 import Link from "next/link";
 
 export default function MarbledGradientButton({
-  width = 300,
-  height = 150,
+  width = 400,
+  height = 300,
   text,
 }: {
   width?: number;
@@ -24,6 +24,8 @@ export default function MarbledGradientButton({
 
     // Animation time variable
     let t = 0;
+
+    let animationID: number;
 
     // --- Main animation loop ---
     function draw() {
@@ -70,10 +72,15 @@ export default function MarbledGradientButton({
       ctx.putImageData(img, 0, 0);
 
       // Request the next animation frame
-      requestAnimationFrame(draw);
+      animationID = requestAnimationFrame(draw);
     }
 
     draw(); // start the loop
+    return () => {
+      cancelAnimationFrame(animationID);
+      // Remove any event listeners
+      // Clear any timers
+    };
 
     // --- Utility: Convert HSL to RGB (compact algorithm) ---
     function hslToRgb(
@@ -94,7 +101,7 @@ export default function MarbledGradientButton({
 
   return (
     <motion.div
-      className="scale-50 relative rounded-3xl overflow-hidden shadow-lg"
+      className=" outline-1 outline-white relative rounded-3xl overflow-hidden shadow-lg"
       style={{ width, height }}
       initial={{
         boxShadow: "0px 0px 30px 1px rgba(255, 255, 255, 0.5)",
@@ -108,7 +115,7 @@ export default function MarbledGradientButton({
         ref={canvasRef}
         className=" absolute rounded-3xl  w-full h-full"
       />
-      <span className="absolute inset-0 flex items-center justify-center text-center text-white text-[3.5rem] wrap-anywhere mix-blend-difference">
+      <span className="absolute inset-0 flex items-center justify-center font-matisse text-center text-white text-[3.5rem] wrap-anywhere ">
         {text}
       </span>
     </motion.div>

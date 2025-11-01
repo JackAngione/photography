@@ -28,7 +28,7 @@ pub(crate) async fn get_category_photos(
     //if given invalid category, return NOT FOUND status code
     let mut category_folder = match tokio::fs::read_dir(path).await {
         Ok(dir) => dir,
-        Err(e) => return Err(StatusCode::NOT_FOUND),
+        Err(_e) => return Err(StatusCode::NOT_FOUND),
     };
 
     let mut photo_files: Vec<String> = Vec::new();

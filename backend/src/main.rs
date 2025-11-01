@@ -1,7 +1,6 @@
 extern crate core;
 
-mod downscale_images;
-mod photography_file_ops;
+mod photo_file_ops;
 
 use axum::http::header;
 use axum::{Router, routing::get};
@@ -30,13 +29,10 @@ async fn main() {
     // build our application with a single route
     let app = Router::new()
         .route("/", get(|| async { "Hello, World!" }))
-        .route(
-            "/getPhotoCategories",
-            get(photography_file_ops::get_categories),
-        )
+        .route("/getPhotoCategories", get(photo_file_ops::get_categories))
         .route(
             "/category/{category}",
-            get(photography_file_ops::get_category_photos),
+            get(photo_file_ops::get_category_photos),
         )
         .nest_service("/photo", serve_images) // Static file route
         .layer(cors);
