@@ -37,7 +37,7 @@ async fn main() {
         .nest_service("/photo", serve_images) // Static file route
         .layer(cors);
 
-    // run our app with hyper, listening globally on port xxxx
+    // run app with hyper, listening globally on port xxxx
     let listener = tokio::net::TcpListener::bind("0.0.0.0:8080").await.unwrap();
     axum::serve(listener, app).await.unwrap();
 }

@@ -7,30 +7,33 @@
   src: url("/public/fonts/evangelion-regular.otf") format("opentype");
 }
 @font-face {
-  font-family: EVA-Matisse_Classic;
-  font-weight: 100;
-  font-style: normal;
-  src: url("/public/fonts/EVA-Matisse_Classic.ttf") format("truetype");
+    font-family: EVA-Matisse_Classic;
+    font-weight: 100;
+    font-style: normal;
+    src: url("/public/fonts/EVA-Matisse_Classic.ttf") format("truetype");
 }
 @theme {
-  --font-eva: "evangelion";
-  --font-matisse: "EVA-Matisse_Standard";
-  --color-background: #000000;
-  --color-foreground: #cdcdcd;
-  --color-accent: #b513c8;
+    --font-eva: "evangelion";
+    --font-matisse: "EVA-Matisse_Standard";
+    --color-background: #000000;
+    --color-foreground: #ffffff;
+    /*--color-foreground: #cdcdcd;*/
+    --color-accent: oklch(0.5595 0.2862 322.88);
+}
+@theme inline{
+
 }
 
 button {
-  cursor: pointer;
   transition: border-color 0.2s;
-  @apply rounded-md px-6 py-3;
+  @apply rounded-md cursor-pointer px-6 hover:text-accent py-3;
 }
 
 h1{
   @apply text-9xl font-eva ;
 }
 a {
-@apply  hover:text-purple-600 text-foreground no-underline;
+@apply  hover:text-accent text-foreground no-underline;
 }
 @media (prefers-color-scheme: dark) {
   :root {
@@ -38,7 +41,7 @@ a {
     --foreground: #ededed;
   }
 }
-::selection {@apply text-purple-600 bg-amber-300;}
+::selection {@apply text-accent bg-amber-300;}
 body {
-  @apply flex-col justify-center items-center bg-background text-foreground font-matisse pt-6 ;
+  @apply flex-col justify-center items-center font-matisse bg-background text-foreground pt-6 ;
 }

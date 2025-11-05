@@ -1,5 +1,6 @@
 import MarbledGradientButton from "@/components/ui/marbledbutton";
 import Link from "next/link";
+import PixelGrid from "@/components/pixelatedGrid";
 
 export default function Home() {
   return (
@@ -12,10 +13,13 @@ export default function Home() {
 
         <h1 className="!text-8xl ">PHOTOGRAPHY</h1>
       </div>
-      <div className="relative flex justify-center">
-        <Link href="/gallery">
-          <MarbledGradientButton text="GALLERY" />
-        </Link>
+      <div className="relative mt-[20vh]">
+        <PixelGrid />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
+          <Link href="/gallery" className="">
+            <MarbledGradientButton text="GALLERY" />
+          </Link>
+        </div>
       </div>
     </>
   );

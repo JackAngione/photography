@@ -101,8 +101,8 @@ export default function MarbledGradientButton({
 
   return (
     <motion.div
-      className=" outline-1 outline-white relative rounded-3xl overflow-hidden shadow-lg"
-      style={{ width, height }}
+      className=" outline-1 outline-white relative rounded-3xl shadow-lg"
+      /*style={{ width, height }}*/
       initial={{
         boxShadow: "0px 0px 30px 1px rgba(255, 255, 255, 0.5)",
       }}
@@ -111,11 +111,8 @@ export default function MarbledGradientButton({
       }}
       transition={{ duration: 0.25, ease: "easeOut" }}
     >
-      <canvas
-        ref={canvasRef}
-        className=" absolute rounded-3xl  w-full h-full"
-      />
-      <span className="absolute inset-0 flex items-center justify-center font-matisse text-center text-white text-[3.5rem] wrap-anywhere ">
+      <canvas ref={canvasRef} className="  rounded-3xl  w-full h-full" />
+      <span className="absolute inset-0 flex items-center justify-center font-matisse text-center mix-blend-difference text-white text-[4rem] wrap-anywhere ">
         {text}
       </span>
     </motion.div>

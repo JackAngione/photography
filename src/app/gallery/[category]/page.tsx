@@ -36,10 +36,8 @@ export default async function CategoryPage({
   return (
     <>
       <h1 className="uppercase pl-[3vw] pb-20 md:pl-[10vw]">{category}</h1>
-      <div className="flex justify-center items-center  ">
-        <div className="flex justify-center items-center px-10 w-500">
-          <DisplayPhotos category={category} photos={photos}></DisplayPhotos>
-        </div>
+      <div className="flex justify-center items-center pb-20">
+        <DisplayPhotos category={category} photos={photos}></DisplayPhotos>
       </div>
     </>
   );
