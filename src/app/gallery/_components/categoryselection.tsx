@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Square } from "ldrs/react";
 import "ldrs/react/Square.css";
 import { API_URL, SWR_fetcher } from "@/_utilities/API_UTILS";
+import PopupHint from "@/app/gallery/_components/popup_hint";
 
 export default function CategorySelection() {
   const { data, error, isLoading } = useSWR(
@@ -35,18 +36,16 @@ export default function CategorySelection() {
   }
   return (
     <>
-      <div className="flex pt-20 flex-col  justify-start items-start">
-        <div className="flex-col flex pl-40">
-          {data.map((category: string, index: number) => (
-            <Link
-              href={`/gallery/${category}`}
-              key={index}
-              className="text-4xl"
-            >
-              {category}
-            </Link>
-          ))}
+      <div className="flex-col flex ">
+        <div className="mb-4">
+          <PopupHint />
         </div>
+
+        {data.map((category: string, index: number) => (
+          <Link href={`/gallery/${category}`} key={index} className="text-4xl">
+            {category}
+          </Link>
+        ))}
       </div>
     </>
   );

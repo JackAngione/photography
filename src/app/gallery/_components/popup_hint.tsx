@@ -2,7 +2,7 @@
 import { motion } from "motion/react";
 export default function PopupHint() {
   return (
-    <div className=" self-center text-white text-[3.5rem]">
+    <>
       <motion.div
         className="text-sm"
         initial={{ opacity: 0 }}
@@ -15,6 +15,6 @@ export default function PopupHint() {
       >
         view by category
       </motion.div>
-    </div>
+    </>
   );
 }
