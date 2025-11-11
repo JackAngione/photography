@@ -5,10 +5,17 @@ use std::path::Path;
 
 pub(crate) async fn get_categories(req: axum::extract::Request) -> Json<Vec<String>> {
     let path = Path::new("./server_files/hdr_images");
-    let mut hdr_images_folder = tokio::fs::read_dir(path).await.unwrap();
+    let hdr_images_folder_result = tokio::fs::read_dir(path).await;
+    let mut hdr_images_folder = match hdr_images_folder_result {
+        Ok(dir) => dir,
+        Err(_e) => {
+            println!("Error, categories directory not found");
+            return Json(Vec::new());
+        }
+    };
     let mut image_files: Vec<String> = Vec::new();
     while let Some(category) = hdr_images_folder.next_entry().await.unwrap() {
-        //check if current entry is a folder (category)
+        //check if the current entry is a folder (category)
         let category_check = match category.file_type().await {
             Ok(file_type) => file_type.is_dir(),
             Err(_) => false, //if this is false, something is wrong with the file lol

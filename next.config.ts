@@ -22,6 +22,12 @@ const nextConfig: NextConfig = {
     // Disable private IP check in development
     dangerouslyAllowLocalIP: true,
   },
+  allowedDevOrigins: [
+    "local-origin.dev",
+    "*.local-origin.dev",
+    "127.99.150.193",
+  ],
+  output: "standalone",
 };
 
 export default nextConfig;

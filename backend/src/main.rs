@@ -28,7 +28,6 @@ async fn main() {
         ]);
     // build our application with a single route
     let app = Router::new()
-        .route("/", get(|| async { "Hello, World!" }))
         .route("/getPhotoCategories", get(photo_file_ops::get_categories))
         .route(
             "/category/{category}",
@@ -38,6 +37,7 @@ async fn main() {
         .layer(cors);
 
     // run app with hyper, listening globally on port xxxx
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:8080").await.unwrap();
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:4272").await.unwrap();
+    println!("Listening on http://{}", listener.local_addr().unwrap());
     axum::serve(listener, app).await.unwrap();
 }
