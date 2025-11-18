@@ -4,7 +4,8 @@ export default function ContactPage() {
       <div className="flex items-start flex-col  ">
         <div className="flex flex-col  items-center pl-[3vw] md:pl-[10vw]">
           <h1 className="">CONTACT</h1>
-          <div className="flex flex-col gap-2 ">
+          <div className="flex flex-col justify-start items-start gap-2 ">
+            <p>Perry Hall, MD</p>
             <a href="https://www.instagram.com/jackangione/" target="_blank">
               <div className="flex items-center  ">
                 <img

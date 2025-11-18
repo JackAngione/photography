@@ -6,10 +6,10 @@ export default function Navbar() {
       <Link className="hover:text-accent " href="/">
         HOME
       </Link>
-
-      {/*TODO: make this a little dropdown with socails/email*/}
-
-      <Link className="" href="/booking">
+      <Link className="hover:text-accent" href="/pricing">
+        PRICING
+      </Link>
+      <Link className="hover:text-accent" href="/booking">
         BOOKING
       </Link>
     </nav>

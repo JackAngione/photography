@@ -1,16 +1,16 @@
 "use client";
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, ReactNode } from "react";
 import { motion } from "motion/react";
 import Link from "next/link";
 
 export default function MarbledGradientButton({
-  width = 400,
-  height = 300,
-  text,
+  width,
+  height,
+  children,
 }: {
-  width?: number;
-  height?: number;
-  text?: string;
+  width: number;
+  height: number;
+  children?: ReactNode;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -112,9 +112,7 @@ export default function MarbledGradientButton({
       transition={{ duration: 0.25, ease: "easeOut" }}
     >
       <canvas ref={canvasRef} className="  rounded-3xl  w-full h-full" />
-      <span className="absolute inset-0 flex items-center justify-center font-matisse text-center mix-blend-difference text-white text-[4rem] wrap-anywhere ">
-        {text}
-      </span>
+      {children}
     </motion.div>
   );
 }

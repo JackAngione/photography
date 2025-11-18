@@ -4,13 +4,13 @@
   font-family: evangelion-regular;
   font-weight: 100;
   font-style: normal;
-  src: url("/public/fonts/evangelion-regular.otf") format("opentype");
+  src: url("/fonts/evangelion-regular.woff2") format("woff2");
 }
 @font-face {
     font-family: EVA-Matisse_Classic;
     font-weight: 100;
     font-style: normal;
-    src: url("/public/fonts/EVA-Matisse_Classic.ttf") format("truetype");
+    src: url("/fonts/EVA-Matisse_Classic.woff2") format("woff2");
 }
 @theme {
     --font-eva: "evangelion";
@@ -18,11 +18,10 @@
     --color-background: #000000;
     --color-foreground: #ffffff;
     /*--color-foreground: #cdcdcd;*/
-    --color-accent: oklch(0.5595 0.2862 322.88);
+    /*--color-accent: oklch(0.5595 0.2862 322.88);*/
+    --color-accent: oklch(0.6079 0.2666 26.55)
 }
-@theme inline{
 
-}
 
 button {
   transition: border-color 0.2s;
@@ -39,9 +38,11 @@ a {
   :root {
     --background: #0a0a0a;
     --foreground: #ededed;
+
   }
 }
-::selection {@apply text-accent bg-amber-300;}
-body {
-  @apply flex-col justify-center items-center font-matisse bg-background text-foreground pt-6 ;
+:root {
+    scrollbar-color: #ffffff #000000;
+    @apply flex-col justify-center items-center font-matisse bg-background text-foreground pt-6 ;
 }
+::selection {@apply text-accent bg-amber-300;}
