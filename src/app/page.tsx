@@ -28,7 +28,7 @@ export default function Home() {
           </Link>
         </div>*/}
       </div>
-      <div className="my-30">
+      <div className="my-30" id="contact">
         <ContactPage />
       </div>
     </>
