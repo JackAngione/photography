@@ -102,7 +102,7 @@ export default function MarbledGradientButton({
   return (
     <motion.div
       className=" outline-1 outline-white relative rounded-3xl shadow-lg"
-      /*style={{ width, height }}*/
+      style={{ width, height }}
       initial={{
         boxShadow: "0px 0px 30px 1px rgba(255, 255, 255, 0.5)",
       }}

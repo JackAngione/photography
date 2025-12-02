@@ -54,7 +54,6 @@ export default function AnaglyphShadow({
 
   return (
     <div
-      className="absolute inset-0"
       style={{
         textShadow: `${offset}px 0px 0px rgba(0, 255, 255, 1), -${offset}px 0px 0px rgba(255, 0, 0, 1)`,
       }}

@@ -4,6 +4,7 @@ import Navbar from "@/components/ui/navbar";
 import React from "react";
 import localFont from "next/font/local";
 import AnaglyphShadow from "@/app/anaglyph_shadow";
+import { AuthProvider } from "@/components/AuthContext";
 
 //MUST ADD FRONTS HERE
 //TO MAKE THEM WORK PROPERLY ACROSS ALL BROWSERS
@@ -31,10 +32,12 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${evangelion.variable} ${evaMatisse.variable}`}>
       <body>
-        <AnaglyphShadow>
-          <Navbar />
-          {children}
-        </AnaglyphShadow>
+        <AuthProvider>
+          <AnaglyphShadow>
+            <Navbar />
+            {children}
+          </AnaglyphShadow>
+        </AuthProvider>
       </body>
     </html>
   );
