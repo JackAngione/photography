@@ -5,6 +5,9 @@ import React from "react";
 import localFont from "next/font/local";
 import AnaglyphShadow from "@/app/anaglyph_shadow";
 import { AuthProvider } from "@/components/AuthContext";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient } from "@tanstack/query-core";
+import Providers from "@/app/Providers";
 
 //MUST ADD FRONTS HERE
 //TO MAKE THEM WORK PROPERLY ACROSS ALL BROWSERS
@@ -34,8 +37,10 @@ export default function RootLayout({
       <body>
         <AuthProvider>
           <AnaglyphShadow>
-            <Navbar />
-            {children}
+            <Providers>
+              <Navbar />
+              {children}
+            </Providers>
           </AnaglyphShadow>
         </AuthProvider>
       </body>

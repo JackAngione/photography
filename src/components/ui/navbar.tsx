@@ -1,13 +1,13 @@
 "use client";
 import Link from "next/link";
 import { useAuth } from "@/components/AuthContext";
-import AuthGaurd from "@/components/AuthGaurd";
+import AuthGuard from "@/components/AuthGuard";
 
 export default function Navbar() {
   const { logout } = useAuth();
   return (
     <div className="flex justify-between">
-      <AuthGaurd>
+      <AuthGuard>
         <nav className="flex flex-col justify-center items-start pl-8">
           <Link className="hover:text-accent" href="/pending_bookings">
             ADMIN PANEL
@@ -16,7 +16,7 @@ export default function Navbar() {
             Logout
           </button>
         </nav>
-      </AuthGaurd>
+      </AuthGuard>
       <nav className="flex flex-col items-end pr-8">
         <Link className="hover:text-accent " href="/">
           HOME

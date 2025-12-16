@@ -24,8 +24,9 @@ export default function Page() {
   }
   if (useAuth().authorized) {
     return (
-      <div className="flex justify-center mt-30 items-center">
-        Already logged in
+      <div className="flex-col flex justify-center mt-30 items-center">
+        <p>Logged in</p>
+        <p>ദ്ദി( • ᴗ - ) ✧</p>
       </div>
     );
   } else {

@@ -94,6 +94,8 @@ async fn main() {
         .with_expiry(Expiry::OnInactivity(Duration::hours(24)));
 
     let app = Router::new()
+        .route("/edit_invoice", post(booking::edit_invoice))
+        .route("/pending_bookings", get(booking::get_pending_bookings))
         .route("/verify_auth", get(|| async { StatusCode::OK }))
         .route_layer(middleware::from_fn(auth_gaurd)) // Protect routes above
         .route("/getPhotoCategories", get(photo_file_ops::get_categories))
@@ -101,7 +103,10 @@ async fn main() {
             "/category/{category}",
             get(photo_file_ops::get_category_photos),
         )
-        .route("/invoice", post(booking::new_booking_request))
+        .route(
+            "/new_booking_request",
+            post(booking::create_booking_request),
+        )
         .route("/login", post(auth::login))
         .route("/logout", post(auth::logout))
         .layer(session_layer)

@@ -1,20 +1,16 @@
 use crate::AppState;
-use crate::booking::BookingRequest;
 use argon2::{
     Argon2,
     password_hash::{
         Error, PasswordHash, PasswordHasher, PasswordVerifier, SaltString, rand_core::OsRng,
     },
 };
-use axum::body::Body;
+use axum::Json;
 use axum::extract::{Request, State};
 use axum::http::StatusCode;
 use axum::middleware::Next;
 use axum::response::Response;
-use axum::{Json, Router, routing::get};
-use sqlx::postgres::PgPoolOptions;
-use tower_sessions::{Expiry, Session, SessionManagerLayer};
-use tower_sessions_sqlx_store::PostgresStore;
+use tower_sessions::Session;
 
 #[derive(serde::Deserialize)]
 pub struct LoginInfo {

@@ -4,6 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import PhoneInput from "react-phone-number-input/input";
 import { z } from "zod";
 import Select from "react-select";
+import { API_URL } from "@/_utilities/API_UTILS";
 
 export default function BookingPage() {
   const BookingSchema = z
@@ -13,13 +14,25 @@ export default function BookingPage() {
 
       phone: z
         .string()
-        .min(7, "Phone number must be at least 7 digits")
+        .min(7, "Phone number must be at least 10 digits")
         .optional()
         .or(z.literal("")),
 
       email: z.email("Invalid email address").optional().or(z.literal("")),
 
-      comments: z.string().optional(),
+      categories: z
+        .array(
+          z.object({
+            value: z.string(),
+            label: z.string(),
+          }),
+        )
+        .min(1, "Please select at least one category"),
+
+      comments: z
+        .string("must write something in the comments box")
+        .min(5, "Comments must be at least 5 characters")
+        .max(3000, "Comments must be less than 3000 characters"),
     })
     .refine((data) => data.phone || data.email, {
       message: "You must provide either a phone number or an email",
@@ -31,17 +44,20 @@ export default function BookingPage() {
     register,
     formState: { errors },
     control,
-  } = useForm<FormData>({ resolver: zodResolver(BookingSchema) });
+  } = useForm<FormData>({
+    resolver: zodResolver(BookingSchema),
+    defaultValues: {
+      categories: [],
+    },
+  });
   //RUN ON FORM SUBMIT
   const onSubmit = async (values: any) => {
     const zodResult = BookingSchema.safeParse(values);
     if (!zodResult.success) {
       //setDisplayError(z.prettifyError(zodResult.error));
     } else {
-      console.log("successful form");
-      console.log(zodResult.data);
-
-      const response = await fetch("http://localhost:4272/invoice", {
+      console.log("Successful form submit", zodResult.data);
+      const response = await fetch(API_URL + "/new_booking_request", {
         headers: {
           "Content-Type": "application/json",
         },
@@ -49,6 +65,8 @@ export default function BookingPage() {
         body: JSON.stringify(zodResult.data),
       }).then((res) => {
         console.log("Successful response", res);
+        alert("Booking Request Successfully Submitted!");
+        window.location.reload();
       });
     }
   };
@@ -114,32 +132,45 @@ export default function BookingPage() {
           />
           <span className="h-4"></span>
           <p>What type(s) of photography work?</p>
-
-          <Select
-            instanceId="category-select"
-            classNames={{
-              input: () => "mx-1.5",
-              placeholder: () => " mx-1.5",
-              control: (state) =>
-                state.isFocused
-                  ? "border-2 border-accent"
-                  : "border-2 border-foreground",
-              menu: () => "bg-background border-2 border-foreground",
-              option: (state) =>
-                state.isSelected
-                  ? "text-accent border-accent"
-                  : state.isFocused
-                    ? "text-accent border-accent"
-                    : " border-accent",
-              multiValue: () => "bg-background  mx-1.5 my-0.5",
-              multiValueLabel: () => "text-foreground",
-              multiValueRemove: () => "hover:text-accent",
-            }}
-            options={category_options}
-            unstyled
-            isMulti
+          {errors.categories && (
+            <p className="text-accent">*{errors.categories.message}</p>
+          )}
+          <Controller
+            name="categories"
+            control={control}
+            render={({ field }) => (
+              <Select
+                instanceId="category-select"
+                {...field}
+                classNames={{
+                  input: () => "mx-1.5",
+                  placeholder: () => " mx-1.5",
+                  control: (state) =>
+                    state.isFocused
+                      ? "border-2 border-accent"
+                      : "border-2 border-foreground",
+                  menu: () => "bg-background border-2 border-foreground",
+                  option: (state) =>
+                    state.isSelected
+                      ? "text-accent border-accent"
+                      : state.isFocused
+                        ? "text-accent border-accent"
+                        : " border-accent",
+                  multiValue: () => "bg-background  mx-1.5 my-0.5",
+                  multiValueLabel: () => "text-foreground",
+                  multiValueRemove: () => "hover:text-accent",
+                }}
+                options={category_options}
+                unstyled
+                isMulti
+              />
+            )}
           />
+
           <span className="h-4"></span>
+          {errors.comments && (
+            <p className="text-accent">*{errors.comments.message}</p>
+          )}
           <label htmlFor="booking-contact">
             Please include more details of the work you're looking for
           </label>
