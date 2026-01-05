@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 
 import { useQuery } from "@tanstack/react-query";
 import { API_URL } from "@/_utilities/API_UTILS";
-import DisplayBookingRequest from "@/app/pending_bookings/components/view_booking_request";
+import DisplayBookingRequest from "@/app/booking_requests/components/view_booking_request";
 
 export interface BookingRequest {
   first_name: string;

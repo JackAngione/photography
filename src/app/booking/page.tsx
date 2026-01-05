@@ -64,14 +64,13 @@ export default function BookingPage() {
         method: "POST",
         body: JSON.stringify(zodResult.data),
       }).then((res) => {
-        console.log("Successful response", res);
         alert("Booking Request Successfully Submitted!");
         window.location.reload();
       });
     }
   };
   const category_options = [
-    { value: "portraiture", label: "Portraiture (includes pets!)" },
+    { value: "portraiture", label: "Portraiture" },
     { value: "real_estate", label: "Real Estate (indoor/outdoor)" },
     { value: "automotive", label: "Automotive" },
     { value: "event", label: "Event" },
@@ -83,11 +82,11 @@ export default function BookingPage() {
       <div className="flex items-start flex-col  ">
         <h1 className="pl-[3vw] md:pl-[10vw]">BOOKING</h1>
       </div>
-      <div className="flex flex-col justify-center items-center ">
+      <div className="flex flex-col  justify-center items-center ">
         {/*{displayError}*/}
         <form
           onSubmit={handleSubmit(onSubmit)}
-          className="flex my-30 p-10 max-w-[65vw] flex-col "
+          className="flex my-30 border-2 p-8 max-w-[65vw] flex-col "
         >
           {errors.first_name && (
             <p className="text-accent">*{errors.first_name.message}</p>
@@ -152,11 +151,12 @@ export default function BookingPage() {
                   menu: () => "bg-background border-2 border-foreground",
                   option: (state) =>
                     state.isSelected
-                      ? "text-accent border-accent"
+                      ? "text-accent px-1.5 border-accent"
                       : state.isFocused
-                        ? "text-accent border-accent"
-                        : " border-accent",
-                  multiValue: () => "bg-background  mx-1.5 my-0.5",
+                        ? "text-accent px-1.5 border-accent"
+                        : "border-accent px-1.5",
+                  multiValue: () =>
+                    "bg-background border-1 px-1.5 mx-1.5 my-0.5",
                   multiValueLabel: () => "text-foreground",
                   multiValueRemove: () => "hover:text-accent",
                 }}

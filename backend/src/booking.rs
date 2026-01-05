@@ -1,29 +1,32 @@
-use crate::AppState;
+use crate::{AppState, invoicing};
 use axum::extract::State;
 use axum::http::StatusCode;
 use axum::{Json, debug_handler};
 
 use rand::Rng;
 use serde::{Deserialize, Serialize};
-use sqlx::Error;
+use sqlx::{Error, Postgres};
 
 use time::OffsetDateTime;
 
 // Client Data from POSTGRES database
-#[derive(Debug)]
-struct ClientRegistered {
+#[derive(Serialize, Deserialize)]
+struct Client {
     client_id: String,
     first_name: String,
     last_name: String,
     phone: Option<String>,
-    email: Option<String>,
-    address: Option<String>,
+    email: String,
+    address_street: Option<String>,
+    #[serde(with = "time::serde::iso8601")]
     created_at: OffsetDateTime,
+    address_city: Option<String>,
+    address_state: Option<String>,
+    address_zip: Option<String>,
+    address_country: Option<String>,
 }
-#[derive(Serialize, Deserialize)]
-pub struct BookingID {
-    booking_id: String,
-}
+//
+
 //data coming in from user form
 #[derive(Serialize, Deserialize)]
 pub struct ClientNew {
@@ -51,49 +54,57 @@ pub struct IncomingBookingRequest {
 pub struct BookingRequest {
     first_name: String,
     last_name: String,
-    booking_id: String,
-    #[serde(with = "time::serde::iso8601")]
-    created_at: OffsetDateTime,
     phone: Option<String>,
     email: Option<String>,
+    booking_id: String,
     categories: Option<Vec<String>>,
     comments: Option<String>,
-}
-
-//Invoice from POSTGRES database
-#[derive(Serialize, Deserialize)]
-struct Invoice {
-    invoice_id: i32,
-    client_id: String,
     #[serde(with = "time::serde::iso8601")]
     created_at: OffsetDateTime,
-    amount_subtotal: Option<rust_decimal::Decimal>,
-    billing_address: Option<String>,
-    payment_method: Option<String>,
-    notes: Option<String>,
-    amount_tax: Option<rust_decimal::Decimal>,
-    amount_total: Option<rust_decimal::Decimal>,
-    booking_id: Option<String>,
+    completed: bool,
 }
-//generates a random 6 character string
-fn generate_id() -> String {
+
+//generates a random 6-character string
+//and checks if it's unique against all ID types in the database
+pub(crate) async fn generate_id(client: &sqlx::PgPool) -> String {
     const CHARSET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ\
                             abcdefghijklmnopqrstuvwxyz\
                             0123456789";
-    let mut rng = rand::rng();
 
-    (0..6)
-        .map(|_| {
-            let idx = rng.random_range(0..CHARSET.len());
-            CHARSET[idx] as char
-        })
-        .collect()
+    loop {
+        let new_id: String = {
+            let mut rng = rand::rng();
+            (0..6)
+                .map(|_| {
+                    let idx = rng.random_range(0..CHARSET.len());
+                    CHARSET[idx] as char
+                })
+                .collect()
+        };
+        let invoice_test = sqlx::query!(
+            r#"
+            SELECT EXISTS (
+                SELECT 1 FROM main.invoices  WHERE invoice_id = $1
+                UNION ALL
+                SELECT 1 FROM main.booking_requests WHERE booking_id = $1
+                UNION ALL
+                SELECT 1 FROM main.clients WHERE client_id = $1
+            ) AS "exists!"
+            "#,
+            new_id
+        )
+        .fetch_one(client)
+        .await;
+        if !invoice_test.unwrap().exists {
+            return new_id;
+        }
+    }
 }
 //take in client info and create new client if doesn't exist
 //or return client_id from database if already exists
 async fn handle_client(
     State(state): State<AppState>,
-    Json(payload): Json<IncomingBookingRequest>,
+    Json(payload): Json<Client>,
 ) -> Result<String, Error> {
     println!(
         "checking if {} {} is in database",
@@ -108,8 +119,8 @@ async fn handle_client(
     //TODO CHECK IF new_client IS ALREADY IN DATABASE
     let client = state.db_pool;
     let user_exists = sqlx::query_as!(
-        ClientRegistered,
-        "SELECT * FROM main.clients WHERE first_name = $1 AND last_name = $2",
+        Client,
+        "SELECT client_id, first_name, last_name, phone, email, address_street, address_state,  address_city, address_zip, address_country, created_at FROM main.clients WHERE first_name = $1 AND last_name = $2",
         payload.first_name,
         payload.last_name
     )
@@ -121,31 +132,25 @@ async fn handle_client(
         Some(client) => Ok(client.client_id),
         None => {
             //if no existing client found, create one
-            let mut new_client_id: String;
+            let new_client_id = generate_id(&client).await;
             //generate random client_id and check if it already exists
-            loop {
-                new_client_id = generate_id();
-                let client_exists = sqlx::query!(
-                    "SELECT COUNT(*) FROM main.clients WHERE client_id = $1",
-                    new_client_id
-                )
-                .fetch_optional(&client)
-                .await
-                .unwrap();
-                if client_exists.unwrap().count.unwrap() == 0 {
-                    break;
-                }
-            }
+
             //Create new client in database
             let current_utc = OffsetDateTime::now_utc();
-            let create_client = sqlx::query!(
-                "INSERT INTO main.clients (client_id, first_name, last_name, phone, email, address, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+            let create_client = sqlx::query!(r#"
+INSERT INTO main.clients (client_id, first_name, last_name, phone, email, address_street, address_city, address_state, address_zip, address_country, created_at)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+                "#,
                 new_client_id,
                 payload.first_name,
                 payload.last_name,
                 payload.phone,
                 payload.email,
-                "",
+                payload.address_street.unwrap_or("".to_string()),
+                payload.address_city.unwrap_or("".to_string()),
+                payload.address_state.unwrap_or("".to_string()),
+                payload.address_zip.unwrap_or("".to_string()),
+                payload.address_country.unwrap_or("".to_string()),
                 current_utc,
             )
                 .fetch_optional(&client)
@@ -160,32 +165,17 @@ async fn handle_client(
         }
     }
 }
-
+#[axum::debug_handler]
 pub async fn create_booking_request(
     State(state): State<AppState>,
     Json(payload): Json<IncomingBookingRequest>,
 ) -> StatusCode {
     //get client_id from the database
     let client = state.db_pool;
-    let mut new_booking_id: String;
-    println!("hit!");
-    //generate random booking_id and check if it already exists
-    loop {
-        new_booking_id = generate_id();
-        let booking_exists = sqlx::query!(
-            "SELECT COUNT(*) FROM main.booking_requests WHERE booking_id = $1",
-            new_booking_id
-        )
-        .fetch_optional(&client)
-        .await
-        .unwrap();
-        if booking_exists.unwrap().count.unwrap() == 0 {
-            break;
-        }
-    }
+    let new_booking_id = generate_id(&client).await;
 
     // Extract just the values from categories array
-    let values: Vec<String> = payload
+    let category_values: Vec<String> = payload
         .categories
         .iter()
         .map(|opt| opt.value.clone())
@@ -193,16 +183,17 @@ pub async fn create_booking_request(
     //create new booking request in database
     let current_utc = OffsetDateTime::now_utc();
     let create_booking = sqlx::query!(
-                "INSERT INTO main.booking_requests (booking_id, created_at, first_name, last_name, phone, email, categories, comments) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
+                "INSERT INTO main.booking_requests (booking_id, created_at, first_name, last_name, phone, email, categories, comments, completed) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
                 new_booking_id,
                 current_utc,
                 payload.first_name,
                 payload.last_name,
                 payload.phone,
                 payload.email,
-               &values,
-                payload.comments.unwrap_or("".to_string())
-            )
+                &category_values,
+                payload.comments.unwrap_or("".to_string()),
+                false
+    )
         .fetch_optional(&client)
         .await;
     match create_booking {
@@ -217,7 +208,7 @@ pub async fn get_pending_bookings(
 
     let pending_bookings = sqlx::query_as!(
         BookingRequest,
-        "SELECT * FROM main.booking_requests ORDER BY created_at;"
+        "SELECT * FROM main.booking_requests WHERE NOT completed ORDER BY created_at;"
     )
     .fetch_all(&client)
     .await;
@@ -229,22 +220,69 @@ pub async fn get_pending_bookings(
         Err(_) => Err(StatusCode::INTERNAL_SERVER_ERROR),
     }
 }
-//edit an invoice or create if it doesn't exist
-#[debug_handler]
-pub async fn edit_invoice(State(state): State<AppState>, Json(payload): Json<BookingID>) {
-    let booking_id = payload.booking_id;
-    let client = state.db_pool;
-    let invoice = sqlx::query_as!(
-        Invoice,
-        "SELECT * FROM main.invoices WHERE booking_id = $1",
+
+//using a booking_id, return existing client_id if it exists, otherwise create a new one
+pub async fn client_from_booking(booking_id: &str, client: &sqlx::PgPool) -> String {
+    //pull up booking request from given booking_id
+    let booking_info = sqlx::query_as!(
+        BookingRequest,
+        "SELECT   first_name,
+        last_name,
+        phone,
+        email,
+        booking_id,
+        categories,
+        comments,
+        created_at,
+        completed FROM main.booking_requests WHERE booking_id = $1",
         booking_id
     )
-    .fetch_optional(&client)
+    .fetch_optional(client)
     .await;
-    match invoice {
-        Ok(invoice) => {}
-        Err(_) => todo!(),
+    match booking_info {
+        Ok(booking) => {
+            let booking_data = booking.unwrap();
+            let new_client_id = generate_id(&client).await;
+
+            //tries to insert a new client into the database, if it already exists, returns the client_id
+            let client_data = sqlx::query!(
+                "INSERT INTO main.clients (client_id, first_name, last_name, phone, email, created_at)
+VALUES ($1, $2, $3, $4, $5, $6)
+ON CONFLICT (email)
+DO UPDATE SET email = clients.email
+RETURNING client_id;",
+                new_client_id,
+                booking_data.first_name,
+                booking_data.last_name,
+                booking_data.phone,
+                booking_data.email,
+
+                OffsetDateTime::now_utc(),
+            )
+                .fetch_optional(client)
+                .await;
+            match client_data {
+                Ok(client) => client.unwrap().client_id,
+                Err(_) => {
+                    panic!("error creating new client");
+                }
+            }
+        }
+        Err(_) => panic!("error retrieving booking info"),
     }
 }
-async fn create_invoice(booking_id: Option<String>) {}
-fn generate_invoice_number() {}
+pub async fn booking_exists(
+    booking_id: &str,
+    database: &sqlx::PgPool,
+) -> Result<bool, sqlx::Error> {
+    //TODO CHECK IF new_client IS ALREADY IN DATABASE
+    let booking_exists = sqlx::query_scalar!(
+        "SELECT EXISTS (SELECT 1 FROM main.booking_requests WHERE booking_id = $1) ",
+        booking_id
+    )
+    .fetch_one(database)
+    .await
+    .expect("DB error");
+
+    Ok(booking_exists.unwrap())
+}

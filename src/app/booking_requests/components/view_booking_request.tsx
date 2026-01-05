@@ -1,4 +1,4 @@
-import { BookingRequest } from "@/app/pending_bookings/page";
+import { BookingRequest } from "@/app/booking_requests/page";
 
 interface DisplayBookingProps {
   request: BookingRequest;
@@ -11,7 +11,7 @@ export default function DisplayBookingRequest({
   return (
     <div className="flex-col border-2 p-6 flex justify-center gap-4 items-start ">
       <div className="flex-col">
-        <p>id: {request.booking_id}</p>
+        <p>Booking_ID: {request.booking_id}</p>
         <p>Created at: {new Date(request.created_at).toLocaleString()}</p>
       </div>
       <div className="flex-col">

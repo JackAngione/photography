@@ -9,9 +9,15 @@ export default function Navbar() {
     <div className="flex justify-between">
       <AuthGuard>
         <nav className="flex flex-col justify-center items-start pl-8">
-          <Link className="hover:text-accent" href="/pending_bookings">
-            ADMIN PANEL
-          </Link>
+          <div className="flex gap-10">
+            <Link className="hover:text-accent" href="/booking_requests">
+              Booking Requests
+            </Link>
+            <Link className="hover:text-accent" href="/invoices">
+              Invoices
+            </Link>
+          </div>
+
           <button className="hover:text-accent " onClick={logout}>
             Logout
           </button>

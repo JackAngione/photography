@@ -1,7 +1,11 @@
 extern crate core;
 mod auth;
 mod booking;
+mod booking_tests;
+mod client;
+mod invoicing;
 mod photo_file_ops;
+
 use crate::auth::auth_gaurd;
 use axum::http::{Method, StatusCode, header};
 use axum::{Router, middleware, routing::get, routing::post};
@@ -47,7 +51,7 @@ async fn main() {
                 .parse::<axum::http::HeaderValue>()
                 .unwrap(),
         )
-        .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE])
+        .allow_methods([Method::GET, Method::POST])
         // 3. Allow headers usually sent by React (Content-Type is needed for JSON)
         .allow_headers([axum::http::header::CONTENT_TYPE])
         .allow_credentials(true)
@@ -94,7 +98,8 @@ async fn main() {
         .with_expiry(Expiry::OnInactivity(Duration::hours(24)));
 
     let app = Router::new()
-        .route("/edit_invoice", post(booking::edit_invoice))
+        .route("/create_invoice", post(invoicing::create_invoice))
+        .route("/edit_invoice", post(invoicing::get_invoice))
         .route("/pending_bookings", get(booking::get_pending_bookings))
         .route("/verify_auth", get(|| async { StatusCode::OK }))
         .route_layer(middleware::from_fn(auth_gaurd)) // Protect routes above
