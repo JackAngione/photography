@@ -4,8 +4,9 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import PhoneInput from "react-phone-number-input/input";
 import { z } from "zod";
 import Select from "react-select";
-import { API_URL } from "@/_utilities/API_UTILS";
-
+import { API_URL, TURNSTILE_SITE_KEY } from "@/_utilities/API_UTILS";
+import { Turnstile } from "@marsidev/react-turnstile";
+import { useState } from "react";
 export default function BookingPage() {
   const BookingSchema = z
     .object({
@@ -13,12 +14,11 @@ export default function BookingPage() {
       last_name: z.string().min(1, "Last name is required"),
 
       phone: z
-        .string()
-        .min(7, "Phone number must be at least 10 digits")
-        .optional()
-        .or(z.literal("")),
+        .string("Invalid Phone number")
+        .min(12, "Invalid Phone number")
+        .optional(),
 
-      email: z.email("Invalid email address").optional().or(z.literal("")),
+      email: z.email().optional().or(z.literal("")),
 
       categories: z
         .array(
@@ -33,16 +33,30 @@ export default function BookingPage() {
         .string("must write something in the comments box")
         .min(5, "Comments must be at least 5 characters")
         .max(3000, "Comments must be less than 3000 characters"),
+      turnstile_token: z.string("Invalid Token"),
     })
-    .refine((data) => data.phone || data.email, {
-      message: "You must provide either a phone number or an email",
-      path: ["email"], // where the error shows; you can change this
-    });
+    .refine(
+      (data) => {
+        // 1. Check if email is present AND not an empty string
+        const hasEmail = !!data.email;
+
+        // 2. Check if phone is present AND not an empty string
+        const hasPhone = !!data.phone;
+
+        // 3. Return TRUE only if at least one exists
+        return hasEmail || hasPhone;
+      },
+      {
+        message: "You must provide either a phone number or an email",
+        path: ["email"], // This decides where the red error text appears (e.g., under Email)
+      },
+    );
   type FormData = z.infer<typeof BookingSchema>;
   const {
     handleSubmit,
     register,
     formState: { errors },
+    setValue,
     control,
   } = useForm<FormData>({
     resolver: zodResolver(BookingSchema),
@@ -53,20 +67,27 @@ export default function BookingPage() {
   //RUN ON FORM SUBMIT
   const onSubmit = async (values: any) => {
     const zodResult = BookingSchema.safeParse(values);
+
     if (!zodResult.success) {
       //setDisplayError(z.prettifyError(zodResult.error));
     } else {
       console.log("Successful form submit", zodResult.data);
-      const response = await fetch(API_URL + "/new_booking_request", {
+      await fetch(API_URL + "/new_booking_request", {
         headers: {
           "Content-Type": "application/json",
         },
         method: "POST",
         body: JSON.stringify(zodResult.data),
-      }).then((res) => {
-        alert("Booking Request Successfully Submitted!");
-        window.location.reload();
-      });
+      })
+        .then(async (res) => {
+          const body = await res.json();
+
+          alert(body);
+          if (res.ok) {
+            window.location.reload();
+          }
+        })
+        .catch((err) => alert("ERROR: " + err.body));
     }
   };
   const category_options = [
@@ -77,6 +98,7 @@ export default function BookingPage() {
     { value: "product", label: "Product" },
     { value: "other", label: "Other" },
   ];
+
   return (
     <>
       <div className="flex items-start flex-col  ">
@@ -113,10 +135,14 @@ export default function BookingPage() {
 
           <label htmlFor="booking-contact">Email</label>
           <input
+            type="email"
             className="border-2 outline-none focus:border-accent"
             {...register("email")}
           />
           <span className="h-4"></span>
+          {errors.phone && (
+            <p className="text-accent">*{errors.phone.message}</p>
+          )}
           <label htmlFor="booking-contact">Phone</label>
           <Controller
             name="phone"
@@ -178,6 +204,25 @@ export default function BookingPage() {
             className="border-2 outline-none focus:border-accent"
             {...register("comments")}
           ></textarea>
+          <span className="h-4"></span>
+          {errors.turnstile_token && (
+            <p className="text-accent">*{errors.turnstile_token.message}</p>
+          )}
+
+          <Turnstile
+            className="justify-center items-center border-2"
+            siteKey={TURNSTILE_SITE_KEY!}
+            onSuccess={(token) =>
+              setValue("turnstile_token", token, { shouldValidate: true })
+            }
+            onExpire={() =>
+              setValue("turnstile_token", "", { shouldValidate: true })
+            }
+            options={{
+              theme: "dark",
+              size: "normal",
+            }}
+          />
           <span className="h-4"></span>
           <button className="border-2" type="submit">
             Submit

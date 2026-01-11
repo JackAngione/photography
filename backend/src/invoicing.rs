@@ -1,23 +1,23 @@
-use crate::booking::client_from_booking;
-use crate::client::client_exists;
+use crate::client::{Client, client_exists};
 use crate::{AppState, booking, client, invoicing};
-use axum::extract::State;
+use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::{Json, debug_handler};
 use rust_decimal::Decimal;
 use rust_decimal::prelude::Zero;
 use serde::{Deserialize, Serialize};
-use sqlx::{Executor, Postgres, Transaction};
+use sqlx::{Postgres, Transaction};
 use time::OffsetDateTime;
 
 #[derive(Serialize, Deserialize)]
-struct InvoiceID {
+pub struct InvoiceID {
     invoice_id: String,
 }
 #[derive(Serialize, Deserialize)]
-pub struct GetInvoice {
-    booking_id: Option<String>,
-    invoice_id: Option<String>,
+pub struct ReturnFullInvoice {
+    invoice: Invoice,
+    invoice_items: Vec<InvoiceItem>,
+    client: Client,
 }
 #[derive(Serialize, Deserialize)]
 struct InvoiceItem {
@@ -67,6 +67,7 @@ pub struct Invoice {
     amount_total: Option<rust_decimal::Decimal>,
     booking_id: Option<String>,
     invoice_id: String,
+    #[serde(with = "time::serde::iso8601::option")]
     due_date: Option<OffsetDateTime>,
     payment_completed: bool,
     #[serde(with = "time::serde::iso8601::option")]
@@ -77,6 +78,18 @@ pub struct Invoice {
 struct StateCountry {
     value: String,
     label: String,
+}
+#[derive(Serialize, Deserialize)]
+pub struct FindInvoiceQuery {
+    client_first_name: Option<String>,
+    client_last_name: Option<String>,
+    /*#[serde(with = "time::serde::iso8601::option")]
+    date: Option<OffsetDateTime>,*/
+    year: Option<String>,
+    month: Option<String>,
+    invoice_number: Option<String>,
+    invoice_id: Option<String>,
+    client_id: Option<String>,
 }
 pub async fn create_invoice(
     State(state): State<AppState>,
@@ -237,70 +250,141 @@ async fn create_invoice_item(
 
     Ok(())
 }
-/*async fn create_invoice_item(
-    invoice_id: &String,
-    item: NewInvoiceItem,
-    client: Executor,
-) -> Result<(), sqlx::Error> {
-    let new_invoice_item_id = booking::generate_id(&client).await;
-    let _new_invoice_item = sqlx::query_scalar!(
 
-        "INSERT INTO main.invoice_items (invoice_id, invoice_item_id, description, quantity, unit_price ) VALUES ($1, $2, $3, $4, $5)",
-        invoice_id,
-        new_invoice_item_id,
-        item.description,
-        item.quantity,
-        item.unit_price
-    )
-        .execute(client)
-        .await;
-    Ok(())
-}*/
-
-//get invoice by booking_id or invoice_id
+//get an invoice by invoice_id
 #[debug_handler]
-pub async fn get_invoice(
+pub async fn view_invoice(
     State(state): State<AppState>,
-    Json(payload): Json<GetInvoice>,
-) -> Result<Json<invoicing::Invoice>, StatusCode> {
-    let client = state.db_pool;
+    Path(invoice_id): Path<String>,
+) -> Result<Json<ReturnFullInvoice>, StatusCode> {
+    let db_client = state.db_pool;
+    println!("Getting invoice: {}", invoice_id.clone());
+    let invoice = sqlx::query_as!(
+        invoicing::Invoice,
+        "SELECT * FROM main.invoices WHERE invoice_id = $1",
+        invoice_id
+    )
+    .fetch_one(&db_client)
+    .await
+    .map_err(|_| StatusCode::NOT_FOUND)?;
 
-    let existing_invoice;
-    if payload.booking_id.is_some() {
-        existing_invoice = sqlx::query_as!(
-            Invoice,
-            "SELECT client_id, created_at, amount_subtotal, payment_method, notes, amount_tax, amount_total, booking_id, invoice_id, payment_completed,paid_at, due_date, invoice_number FROM main.invoices WHERE booking_id = $1",
-            payload.booking_id.as_deref().unwrap()
+    let invoice_items = sqlx::query_as!(
+        invoicing::InvoiceItem,
+        "SELECT * FROM main.invoice_items WHERE invoice_id = $1",
+        invoice_id
+    )
+    .fetch_all(&db_client)
+    .await
+    .map_err(|_| StatusCode::NOT_FOUND)?;
+    let client = sqlx::query_as!(
+        client::Client,
+        r#" SELECT c.*
+                    FROM main.invoices i
+                    JOIN main.clients c
+                    ON c.client_id = i.client_id
+                    WHERE i.invoice_id = $1"#,
+        invoice_id
+    )
+    .fetch_one(&db_client)
+    .await
+    .map_err(|_| StatusCode::NOT_FOUND)?;
+    let full_invoice = ReturnFullInvoice {
+        invoice,
+        invoice_items,
+        client,
+    };
+    Ok(Json(full_invoice))
+}
+
+pub(crate) async fn find_invoice(
+    State(state): State<AppState>,
+    Query(q): Query<FindInvoiceQuery>,
+) -> Result<Json<Vec<String>>, StatusCode> {
+    let client = &state.db_pool;
+    println!("-----FINDING YOUR INVOICE!!!-----");
+
+    /*if (q.client_last_name.is_some()) {
+        println!("FIRST NAME: {:?}", q.client_first_name.unwrap());
+    }*/
+    let mut invoice_number: Option<i64> = None;
+    //CONVERT INVOICE NUMBER STRING TO NUMBER
+    if (q.invoice_number.is_some()) {
+        invoice_number = q.invoice_number.unwrap_or("".to_string()).parse().ok();
+    }
+    let mut month: Option<i32> = None;
+    //CONVERT MONTH STRING TO NUMBER
+    if (q.month.is_some()) {
+        month = q.month.unwrap_or("".to_string()).parse().ok();
+    }
+    let mut year: Option<i32> = None;
+    //CONVERT YEAR NUMBER STRING TO NUMBER
+    if (q.year.is_some()) {
+        year = q.year.unwrap_or("".to_string()).parse().ok();
+    }
+
+    let mut client_id: Option<String> = None;
+    //get client id using first and last name if no client_id is provided
+    if q.client_id.is_none() && (q.client_first_name.is_some() || q.client_last_name.is_some()) {
+        let find_client = sqlx::query_scalar!(
+            "SELECT client_id FROM main.clients WHERE first_name ILIKE $1 OR last_name ILIKE $2",
+            q.client_first_name,
+            q.client_last_name
         )
-            .fetch_optional(&client)
-            .await;
+        .fetch_optional(client)
+        .await;
+        if find_client.is_ok() {
+            client_id = find_client.unwrap();
+            println!(
+                "CLIENT FOUND!{}",
+                client_id.clone().unwrap_or("no client found".to_string())
+            );
+        }
     } else {
-        existing_invoice = sqlx::query_as!(
-            Invoice,
-            "SELECT client_id, created_at, amount_subtotal, payment_method, notes, amount_tax, amount_total, booking_id, invoice_id, due_date, payment_completed, paid_at, invoice_number FROM main.invoices WHERE invoice_id = $1",
-            payload.invoice_id.as_deref().unwrap()
-        )
-            .fetch_optional(&client)
-            .await;
+        client_id = q.client_id;
     }
-    match existing_invoice {
-        //check if the invoice exists
-        Ok(invoice) => match invoice {
-            Some(invoice) => {
-                println!("invoice Found!");
-                Ok(Json(invoice))
-            }
-            None => {
-                println!("invoice not found");
-                Err(StatusCode::NOT_FOUND)
-            }
-        },
-        //error retrieving invoice
-        Err(_) => Err(StatusCode::INTERNAL_SERVER_ERROR),
+    // Check if all inputs are None before querying
+    let all_none = client_id.is_none()
+        && invoice_number.is_none()
+        && q.invoice_id.is_none()
+        && year.is_none()
+        && month.is_none();
+    if all_none {
+        println!("ALL INPUTS ARE NONE!");
+        return Ok(Json(vec![])); // Return early without hitting the DB
     }
+    let find_invoices = sqlx::query_scalar!(
+        r#"SELECT invoice_id FROM main.invoices
+        WHERE ($1::varchar IS NULL OR client_id = $1)
+        AND ($2::bigint IS NULL OR invoice_number = $2::bigint)
+        AND ($3::varchar IS NULL OR invoice_id = $3::varchar)
+        AND ($4::integer IS NULL OR EXTRACT(YEAR FROM created_at) = $4::integer)
+        AND (($5::integer IS NULL OR $4::integer IS NULL) OR EXTRACT(MONTH FROM created_at) = $5::integer)
+       "#,
+        client_id,
+        invoice_number,
+        q.invoice_id,
+        year,
+        month,
+    )
+    .fetch_all(client)
+    .await;
+    for invoice in find_invoices.iter().clone() {
+        println!("FOUND INVOICE: {:?}", invoice);
+    }
+    let found_invoices = Json(find_invoices.unwrap());
+
+    Ok(found_invoices)
 }
 
 pub(crate) async fn delete_invoice(
+    State(state): State<AppState>,
+    Json(payload): Json<InvoiceID>,
+) -> Result<StatusCode, StatusCode> {
+    //TODO delete the invoice and all invoice_items
+    Ok(StatusCode::OK)
+}
+
+pub(crate) async fn edit_invoice(
     State(state): State<AppState>,
     Json(payload): Json<InvoiceID>,
 ) -> Result<StatusCode, StatusCode> {

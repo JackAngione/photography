@@ -1,4 +1,4 @@
-use crate::{AppState, invoicing};
+use crate::{AppState, client, invoicing};
 use axum::extract::State;
 use axum::http::StatusCode;
 use axum::{Json, debug_handler};
@@ -7,24 +7,9 @@ use rand::Rng;
 use serde::{Deserialize, Serialize};
 use sqlx::{Error, Postgres};
 
+use crate::auth::verify_turnstile;
+use crate::invoicing::ApiResponse;
 use time::OffsetDateTime;
-
-// Client Data from POSTGRES database
-#[derive(Serialize, Deserialize)]
-struct Client {
-    client_id: String,
-    first_name: String,
-    last_name: String,
-    phone: Option<String>,
-    email: String,
-    address_street: Option<String>,
-    #[serde(with = "time::serde::iso8601")]
-    created_at: OffsetDateTime,
-    address_city: Option<String>,
-    address_state: Option<String>,
-    address_zip: Option<String>,
-    address_country: Option<String>,
-}
 //
 
 //data coming in from user form
@@ -49,6 +34,7 @@ pub struct IncomingBookingRequest {
     email: Option<String>,
     categories: Vec<Category>,
     comments: Option<String>,
+    turnstile_token: String,
 }
 #[derive(Serialize, Deserialize)]
 pub struct BookingRequest {
@@ -104,7 +90,7 @@ pub(crate) async fn generate_id(client: &sqlx::PgPool) -> String {
 //or return client_id from database if already exists
 async fn handle_client(
     State(state): State<AppState>,
-    Json(payload): Json<Client>,
+    Json(payload): Json<client::Client>,
 ) -> Result<String, Error> {
     println!(
         "checking if {} {} is in database",
@@ -119,14 +105,14 @@ async fn handle_client(
     //TODO CHECK IF new_client IS ALREADY IN DATABASE
     let client = state.db_pool;
     let user_exists = sqlx::query_as!(
-        Client,
+        client::Client,
         "SELECT client_id, first_name, last_name, phone, email, address_street, address_state,  address_city, address_zip, address_country, created_at FROM main.clients WHERE first_name = $1 AND last_name = $2",
         payload.first_name,
         payload.last_name
     )
-    .fetch_optional(&client)
-    .await
-    .expect("DB error");
+        .fetch_optional(&client)
+        .await
+        .expect("DB error");
 
     match user_exists {
         Some(client) => Ok(client.client_id),
@@ -169,10 +155,28 @@ INSERT INTO main.clients (client_id, first_name, last_name, phone, email, addres
 pub async fn create_booking_request(
     State(state): State<AppState>,
     Json(payload): Json<IncomingBookingRequest>,
-) -> StatusCode {
+) -> Result<(StatusCode, Json<String>), (StatusCode, Json<String>)> {
     //get client_id from the database
+    println!("creating booking request");
+    println!("turnstile token: {}", payload.turnstile_token);
     let client = state.db_pool;
     let new_booking_id = generate_id(&client).await;
+    //VERIFY TURNSTILE TOKEN
+    let turnstile = verify_turnstile(payload.turnstile_token.as_str(), None, None, None)
+        .await
+        .map_err(|e| {
+            (
+                StatusCode::UNAUTHORIZED,
+                Json("FAILED TO VERIFY TURNSTILE TOKEN"),
+            )
+        });
+    if (!turnstile.unwrap().success) {
+        println!("turnstile token failed verification");
+        return Err((
+            StatusCode::UNAUTHORIZED,
+            Json("FAILED TO VERIFY TURNSTILE TOKEN".to_string()),
+        ));
+    }
 
     // Extract just the values from categories array
     let category_values: Vec<String> = payload
@@ -197,8 +201,20 @@ pub async fn create_booking_request(
         .fetch_optional(&client)
         .await;
     match create_booking {
-        Ok(_) => StatusCode::CREATED,
-        Err(_) => StatusCode::INTERNAL_SERVER_ERROR,
+        Ok(_) => {
+            println!("booking request created successfully!");
+            Ok((
+                StatusCode::CREATED,
+                Json("Booking request created!".to_string()),
+            ))
+        }
+        Err(e) => {
+            println!("Error creating booking request: {}", e);
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json("ERROR: Booking request Not Created!".to_string()),
+            ))
+        }
     }
 }
 pub async fn get_pending_bookings(

@@ -10,12 +10,32 @@ use axum::extract::{Request, State};
 use axum::http::StatusCode;
 use axum::middleware::Next;
 use axum::response::Response;
+use dotenvy::dotenv;
+use serde::Deserialize;
+use std::env;
 use tower_sessions::Session;
 
 #[derive(serde::Deserialize)]
 pub struct LoginInfo {
     username: String,
     password: String,
+}
+#[derive(Debug, Deserialize)]
+pub struct TurnstileResponse {
+    pub(crate) success: bool,
+    #[serde(default)]
+    #[serde(rename = "error-codes")]
+    pub(crate) error_codes: Vec<String>,
+
+    // Optional fields Cloudflare may return
+    #[serde(default)]
+    pub(crate) hostname: Option<String>,
+    #[serde(default)]
+    pub(crate) action: Option<String>,
+    #[serde(default)]
+    pub(crate) cdata: Option<String>,
+    #[serde(default)]
+    pub(crate) challenge_ts: Option<String>,
 }
 #[cfg(test)]
 mod tests {
@@ -59,6 +79,75 @@ async fn verify_password(username: &str, password_attempt: &str, state: AppState
         //INCORRECT USERNAME/NOT FOUND
         Err(_) => false,
     }
+}
+pub async fn verify_turnstile(
+    token: &str,
+    remote_ip: Option<&str>,
+    expected_action: Option<&str>,
+    expected_hostname: Option<&str>,
+) -> Result<TurnstileResponse, reqwest::Error> {
+    dotenv().expect(".env not found");
+    //set env for production vs dev
+    let secret: String = env::var("TURNSTILE_SECRET_KEY").unwrap();
+    //INITIALIZE DATABASE
+    let db_url = env::var("DATABASE_URL").expect("DATABASE_URL not found");
+    // Basic sanity checks from docs (token max length 2048)
+    if token.is_empty() || token.len() > 2048 {
+        return Ok(TurnstileResponse {
+            success: false,
+            error_codes: vec!["invalid-input-response".to_string()],
+            hostname: None,
+            action: None,
+            cdata: None,
+            challenge_ts: None,
+        });
+    }
+
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()?;
+
+    // Send as application/x-www-form-urlencoded
+    let mut form = vec![
+        ("secret", secret.to_string()),
+        ("response", token.to_string()),
+    ];
+    if let Some(ip) = remote_ip {
+        form.push(("remoteip", ip.to_string()));
+    }
+
+    let resp = client
+        .post("https://challenges.cloudflare.com/turnstile/v0/siteverify")
+        .form(&form)
+        .send()
+        .await?
+        .error_for_status()? // treat non-2xx as error
+        .json::<TurnstileResponse>()
+        .await?;
+
+    // Optional: enforce action/hostname matching your expectations
+    if resp.success {
+        if let (Some(exp), Some(got)) = (expected_action, resp.action.as_deref()) {
+            if exp != got {
+                return Ok(TurnstileResponse {
+                    success: false,
+                    error_codes: vec!["action-mismatch".to_string()],
+                    ..resp
+                });
+            }
+        }
+        if let (Some(exp), Some(got)) = (expected_hostname, resp.hostname.as_deref()) {
+            if exp != got {
+                return Ok(TurnstileResponse {
+                    success: false,
+                    error_codes: vec!["hostname-mismatch".to_string()],
+                    ..resp
+                });
+            }
+        }
+    }
+
+    Ok(resp)
 }
 #[axum::debug_handler]
 pub async fn login(

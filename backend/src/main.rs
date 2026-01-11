@@ -98,8 +98,10 @@ async fn main() {
         .with_expiry(Expiry::OnInactivity(Duration::hours(24)));
 
     let app = Router::new()
-        .route("/create_invoice", post(invoicing::create_invoice))
-        .route("/edit_invoice", post(invoicing::get_invoice))
+        .route("/invoicing/view/{invoice_id}", get(invoicing::view_invoice))
+        .route("/invoicing/find", get(invoicing::find_invoice))
+        .route("/invoicing/create", post(invoicing::create_invoice))
+        .route("/invoicing/edit", post(invoicing::edit_invoice))
         .route("/pending_bookings", get(booking::get_pending_bookings))
         .route("/verify_auth", get(|| async { StatusCode::OK }))
         .route_layer(middleware::from_fn(auth_gaurd)) // Protect routes above

@@ -1,6 +1,23 @@
 use crate::booking::generate_id;
+use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 
+// Client Data from POSTGRES database
+#[derive(Serialize, Deserialize)]
+pub(crate) struct Client {
+    pub(crate) client_id: String,
+    pub(crate) first_name: String,
+    pub(crate) last_name: String,
+    pub(crate) phone: Option<String>,
+    pub(crate) email: String,
+    pub(crate) address_street: Option<String>,
+    #[serde(with = "time::serde::iso8601")]
+    pub(crate) created_at: OffsetDateTime,
+    pub(crate) address_city: Option<String>,
+    pub(crate) address_state: Option<String>,
+    pub(crate) address_zip: Option<String>,
+    pub(crate) address_country: Option<String>,
+}
 //check if client_id exists in database
 pub async fn client_exists(client_id: &str, database: &sqlx::PgPool) -> Result<bool, sqlx::Error> {
     let user_exists = sqlx::query_scalar!(

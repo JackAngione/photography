@@ -5,7 +5,6 @@ export default function ContactPage() {
         <div className="flex flex-col  items-center pl-[3vw] md:pl-[10vw]">
           <h1 className="">CONTACT</h1>
           <div className="flex flex-col justify-start items-start gap-2 ">
-            <p>Perry Hall, MD</p>
             <a href="https://www.instagram.com/jackangione/" target="_blank">
               <div className="flex items-center  ">
                 <img
@@ -33,8 +32,9 @@ export default function ContactPage() {
                 />
               </svg>
 
-              <h2>8jk.ang8@gmail.com</h2>
+              <h2>angionejack@gmail.com</h2>
             </div>
+            <p>Perry Hall, MD</p>
           </div>
         </div>
       </div>

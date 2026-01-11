@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { useAuth } from "@/components/AuthContext";
 import AuthGuard from "@/components/AuthGuard";
+import Invoicing from "@/app/admin/invoicing/page";
 
 export default function Navbar() {
   const { logout } = useAuth();
@@ -10,11 +11,11 @@ export default function Navbar() {
       <AuthGuard>
         <nav className="flex flex-col justify-center items-start pl-8">
           <div className="flex gap-10">
-            <Link className="hover:text-accent" href="/booking_requests">
+            <Link className="hover:text-accent" href="/admin/booking_requests">
               Booking Requests
             </Link>
-            <Link className="hover:text-accent" href="/invoices">
-              Invoices
+            <Link className="hover:text-accent" href="/admin/invoicing">
+              Invoicing
             </Link>
           </div>
 

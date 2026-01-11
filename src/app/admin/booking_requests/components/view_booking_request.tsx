@@ -1,4 +1,4 @@
-import { BookingRequest } from "@/app/booking_requests/page";
+import { BookingRequest } from "@/app/admin/booking_requests/page";
 
 interface DisplayBookingProps {
   request: BookingRequest;

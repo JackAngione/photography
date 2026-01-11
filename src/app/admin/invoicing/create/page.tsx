@@ -7,7 +7,7 @@ import { API_URL } from "@/_utilities/API_UTILS";
 import "./create_invoice.css";
 import countryList from "react-select-country-list";
 import Select from "react-select";
-import states_data from "../../../_utilities/us_states.json";
+import states_data from "../../../../_utilities/us_states.json";
 import { useMemo } from "react";
 
 export default function CreateInvoice() {
@@ -135,7 +135,7 @@ export default function CreateInvoice() {
     } else {
       console.log("Successful form submit", zodResult.data);
 
-      const response = await fetch(API_URL + "/create_invoice", {
+      const response = await fetch(API_URL + "/invoicing/create", {
         headers: {
           "Content-Type": "application/json",
         },
@@ -220,7 +220,6 @@ export default function CreateInvoice() {
         <div className="flex flex-col  items-center my-10">
           <h2 className="mb-6">Invoice Items</h2>
 
-          {/*TODO use an icon for the add button*/}
           <table className="table-auto border-separate border-spacing-4 border-2 ">
             <thead>
               <tr>

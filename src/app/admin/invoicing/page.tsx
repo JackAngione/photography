@@ -18,17 +18,17 @@ export interface BookingRequest {
   request?: unknown;
 }
 
-export default function Invoices() {
+export default function Invoicing() {
   return (
     <AuthGuard>
       <div className="flex items-start pl-[3vw] md:pl-[10vw] flex-col">
-        <h1 className="">INVOICES </h1>
+        <h1 className="">INVOICING </h1>
       </div>
       <div className="flex-col flex mt-30 px-8 justify-center gap-5 items-center">
-        <Link className="border-2 p-1.5" href="/invoices/create">
+        <Link className="border-2 p-1.5" href="invoicing/create">
           Create Invoice
         </Link>
-        <Link className="border-2 p-1.5" href="/invoices/view">
+        <Link className="border-2 p-1.5" href="invoicing/find">
           View/Find Invoices
         </Link>
       </div>

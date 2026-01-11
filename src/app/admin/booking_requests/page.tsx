@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 
 import { useQuery } from "@tanstack/react-query";
 import { API_URL } from "@/_utilities/API_UTILS";
-import DisplayBookingRequest from "@/app/booking_requests/components/view_booking_request";
+import DisplayBookingRequest from "@/app/admin/booking_requests/components/view_booking_request";
 
 export interface BookingRequest {
   first_name: string;
@@ -73,7 +73,7 @@ export default function PendingBookingsPage() {
         </div>
       </div>
       <p className="flex mt-4 justify-center items-center">
-        {activeIndex} of {bookings?.length} bookings
+        {activeIndex + 1} of {bookings?.length} bookings
       </p>
     </AuthGuard>
   );
