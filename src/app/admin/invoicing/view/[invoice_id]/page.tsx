@@ -7,6 +7,7 @@ import { useParams } from "next/navigation";
 import { parsePhoneNumberWithError } from "libphonenumber-js";
 
 import React from "react";
+import Link from "next/link";
 export type InvoiceItem = {
   invoice_id: string;
   invoice_item_id: string;
@@ -50,7 +51,7 @@ type PageProps = {
   }>;
 };
 
-export default function DisplayInvoice() {
+export default function ViewInvoice() {
   const params = useParams<{ invoice_id: string }>();
   const invoice_id = params.invoice_id;
   //retrieve get invoice from the database in the structure Invoice{invoice: Invoice, invoice_items: InvoiceItem[]}
@@ -89,6 +90,17 @@ export default function DisplayInvoice() {
     hour: "2-digit",
     minute: "2-digit",
   });
+  let payment_date = "N/A";
+  if (invoice?.invoice.payment_completed) {
+    payment_date = new Date(invoice?.invoice.paid_at).toLocaleString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  }
+
   if (isLoading)
     return (
       <div className="flex justify-center mt-30 items-center">
@@ -99,7 +111,7 @@ export default function DisplayInvoice() {
     );
   if (isError)
     return (
-      <div className="flex justify-center mt-30 items-center mt-30">
+      <div className="flex justify-center items-center mt-30">
         <div className="animate-pulse flex space-x-4">
           Could not find invoice
         </div>
@@ -109,29 +121,51 @@ export default function DisplayInvoice() {
     <AuthGuard>
       <>
         <div className="flex items-start pl-[3vw] md:pl-[10vw] flex-col">
-          <h1 className="">INVOICE: {invoice_id} </h1>
+          <h1>INVOICE #{invoice?.invoice.invoice_number}</h1>
+
+          <Link href={`/admin/invoicing/edit/${invoice_id}`} passHref>
+            <button className="border-2">EDIT</button>
+          </Link>
         </div>
-        <div className="flex justify-center items-center flex-col gap-7">
-          <h2>client_id: {invoice?.invoice.client_id}</h2>
+
+        <div className="flex justify-center  mx-10  mb-80 p-6 border-2 items-center mt-30 flex-col ">
           <h2>Created at: {created_at}</h2>
+          <span className="h-6" />
           <h2>CLIENT INFO</h2>
           <div className="border-2 p-2">
             <p>
-              Name: {invoice.client.first_name} {invoice.client.last_name}
+              Name: {invoice?.client.first_name} {invoice?.client.last_name}
             </p>
             <p>
               Address: {invoice.client.address_street}
               {", "}
-              {invoice.client.address_city}, {invoice.client.address_state}
+              {invoice.client.address_city}, {invoice?.client.address_state}
               {", "}
-              {invoice.client.address_zip}, {invoice.client.address_country}
+              {invoice.client.address_zip}, {invoice?.client.address_country}
             </p>
             <p>
               Phone:{" "}
-              {parsePhoneNumberWithError(invoice.client.phone).formatNational()}
+              <span>
+                {(() => {
+                  try {
+                    return parsePhoneNumberWithError(
+                      invoice?.client.phone,
+                    ).formatNational();
+                  } catch {
+                    return (
+                      "*INVALID PHONE NUMBER: " +
+                      '"' +
+                      invoice?.client.phone +
+                      '"'
+                    );
+                  }
+                })()}
+              </span>
             </p>
             <p>Email: {invoice.client.email}</p>
+            <h2>client_id: {invoice?.invoice.client_id}</h2>
           </div>
+          <span className="h-6" />
           <h2>INVOICE ITEMS</h2>
           <table className="table-auto border-separate border-spacing-4 border-2 ">
             <thead>
@@ -156,7 +190,9 @@ export default function DisplayInvoice() {
           <h2 className="justify-end items-end">
             Subtotal: {invoice?.invoice.amount_subtotal}
           </h2>
+          <span className="h-6" />
           <h2>Due Date: {due_date}</h2>
+          <span className="h-6" />
           <p>
             Payment Status:{" "}
             {invoice?.invoice.payment_completed ? (
@@ -165,6 +201,8 @@ export default function DisplayInvoice() {
               <span>Unpaid</span>
             )}
           </p>
+          <h2>Payment Date: {payment_date}</h2>
+          <h2>Invoice_ID: {invoice?.invoice.invoice_id}</h2>
         </div>
       </>
     </AuthGuard>

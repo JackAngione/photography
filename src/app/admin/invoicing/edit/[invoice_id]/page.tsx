@@ -1,34 +1,94 @@
 "use client";
 import AuthGuard from "@/components/AuthGuard";
+import { API_URL } from "@/_utilities/API_UTILS";
+import { useQuery } from "@tanstack/react-query";
+import { useParams } from "next/navigation";
 import { z } from "zod";
+import "./edit_invoice.css";
+import React, { useMemo } from "react";
+import countryList from "react-select-country-list";
+import states_list from "@/_utilities/us_states.json";
 import { Controller, useFieldArray, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { API_URL } from "@/_utilities/API_UTILS";
-import "./create_invoice.css";
-import countryList from "react-select-country-list";
 import Select from "react-select";
-import states_data from "../../../../_utilities/us_states.json";
-import { useMemo } from "react";
 
-export default function CreateInvoice() {
+export type InvoiceItem = {
+  invoice_id: string;
+  invoice_item_id: string;
+  description: string;
+  quantity: number;
+  unit_price: number;
+};
+export type Client = {
+  first_name: string;
+  last_name: string;
+  phone: string | null;
+  email: string | null;
+  address_street: string | null;
+  address_city: string | null;
+  address_state: string | null;
+  address_zip: string | null;
+  address_country: string | null;
+  client_id: string;
+  created_at: string;
+};
+export type Invoice = {
+  client_id: string;
+  created_at: string;
+  amount_subtotal: number;
+  payment_method: number;
+  notes: string;
+  amount_tax: number;
+  amount_total: number;
+  booking_id: string;
+  invoice_id: string;
+  due_date: string;
+  payment_completed: boolean;
+  paid_at: string;
+  invoice_number: number;
+  invoiceItems: InvoiceItem[];
+};
+
+type PageProps = {
+  params: Promise<{
+    invoice_id: string;
+  }>;
+};
+
+export default function EditInvoice() {
+  const params = useParams<{ invoice_id: string }>();
+  const invoice_id = params.invoice_id;
+
+  //get invoice data in the structure Invoice{invoice: Invoice, invoice_items: InvoiceItem[]}
+  const {
+    data: invoice,
+    isLoading,
+    isError,
+    isSuccess,
+  } = useQuery({
+    queryKey: ["invoice"],
+    queryFn: async () => {
+      const response = await fetch(API_URL + `/invoicing/view/${invoice_id}`, {
+        credentials: "include",
+      });
+
+      if (!response.ok) throw new Error("Network response was not ok");
+      else {
+        return await response.json();
+      }
+    },
+  });
+
   const InvoiceItemSchema = z.object({
     description: z.string().min(1, "Description is required"),
     quantity: z.number().int().min(1, "Min quantity is 1."),
     unit_price: z.number().min(0, "Must be >= 0"),
   });
 
-  // Helper to convert empty strings to undefined
-  const emptyToUndefined = z.literal("").transform(() => undefined);
-  const stringOrEmpty = z
-    .string()
-    .length(6, "must be 6 characters")
-    .trim()
-    .or(emptyToUndefined);
   const InvoiceFormSchema = z
     .object({
-      booking_id: stringOrEmpty.optional(),
-
-      client_id: stringOrEmpty.optional(),
+      //user can't edit client_id, but it needs to be here for updating the address server side
+      client_id: z.string(),
 
       invoice_items: z
         .array(InvoiceItemSchema)
@@ -57,6 +117,8 @@ export default function CreateInvoice() {
       address_country: z
         .object({ value: z.string(), label: z.string() })
         .optional(),
+      paid_at: z.string().optional(),
+      payment_completed: z.boolean(),
     })
     .refine(
       (data) => {
@@ -77,16 +139,26 @@ export default function CreateInvoice() {
         path: ["address_street"], // This points the error to the street field
       },
     )
-    .refine((data) => data.booking_id || data.client_id, {
-      message:
-        "You must provide either a booking_id or a client_id to retrieve proper client information",
-      path: ["client_id"], // where the error shows; you can change this
-    });
+    .refine(
+      (data) => {
+        if (data.payment_completed) {
+          return data.paid_at !== undefined && data.paid_at !== "";
+        }
+        return true;
+      },
+      {
+        message: "Payment date cannot be blank if payment is completed!",
+        path: ["paid_at"], // This points the error to the street field
+      },
+    );
 
   const country_list = useMemo(() => countryList().getData(), []);
-  const defaultCountry = country_list.find((opt) => opt.value === "US");
-  const defaultState = states_data.find((opt) => opt.value === "MD");
-
+  const isoToDatetimeLocal = (iso: string) => {
+    if (!iso) return "";
+    const d = new Date(iso);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  };
   type FormData = z.infer<typeof InvoiceFormSchema>;
   const {
     control,
@@ -95,31 +167,48 @@ export default function CreateInvoice() {
     formState: { errors },
   } = useForm<FormData>({
     resolver: zodResolver(InvoiceFormSchema),
-    defaultValues: {
-      booking_id: "",
-      client_id: "",
-      invoice_items: [{ description: "", quantity: 0, unit_price: 0.0 }],
-      notes: "",
-      address_country: defaultCountry || undefined,
-      address_state: defaultState || undefined,
+    values: {
+      client_id: invoice?.invoice?.client_id,
+      invoice_items: invoice?.invoice_items,
+      notes: invoice?.invoice?.notes ?? undefined,
+      due_date: isoToDatetimeLocal(invoice?.invoice?.due_date) ?? undefined,
+      address_street: invoice?.client?.address_street ?? undefined,
+      address_city: invoice?.client?.address_city ?? undefined,
+      address_state:
+        states_list.find((o) => o.value === invoice?.client?.address_state) ??
+        undefined,
+
+      address_zip: invoice?.client?.address_zip ?? undefined,
+      address_country:
+        country_list.find(
+          (o) => o.value === invoice?.client?.address_country,
+        ) ?? undefined,
+      paid_at: isoToDatetimeLocal(invoice?.invoice?.paid_at) ?? undefined,
+      payment_completed: invoice?.invoice?.payment_completed,
     },
   });
   const { fields, append, remove } = useFieldArray({
     control,
     name: "invoice_items",
   });
+
   //RUN ON FORM SUBMIT
   const onSubmit = async (values: any) => {
-    const chosenDueDate = values.due_date;
-
+    const local_due_date = values.due_date;
+    const local_paid_at = values.paid_at;
     // JS interprets this string using the browser's current timezone.
-    const dateWithCurrentOffset = new Date(chosenDueDate);
+    const due_dateWithCurrentOffset = new Date(local_due_date).toISOString();
+    let paid_atWithCurrentOffset = "";
+    if (local_paid_at != "") {
+      paid_atWithCurrentOffset = new Date(local_paid_at).toISOString();
+    }
     //console.log(dateWithCurrentOffset.toISOString());
     // 3. Convert to a full ISO string
     // .toISOString() converts the time to UTC (Z) automatically.
     const finalized_data = {
       ...values,
-      due_date: dateWithCurrentOffset.toISOString(),
+      due_date: due_dateWithCurrentOffset,
+      paid_at: paid_atWithCurrentOffset,
     };
 
     //Remove empty strings from the json
@@ -134,8 +223,7 @@ export default function CreateInvoice() {
       //setDisplayError(z.prettifyError(zodResult.error));
     } else {
       console.log("Successful form submit", zodResult.data);
-
-      const response = await fetch(API_URL + "/invoicing/create", {
+      const response = await fetch(API_URL + "/invoicing/edit/" + invoice_id, {
         headers: {
           "Content-Type": "application/json",
         },
@@ -143,67 +231,47 @@ export default function CreateInvoice() {
         credentials: "include",
         body: JSON.stringify(zodResult.data),
       })
-        .then((res) => res.json())
-        .then((json) => alert(json.message))
+        .then(async (res) => {
+          if (res.ok) {
+            let json = await res.json();
+            alert(json.message);
+          } else {
+            throw new Error();
+          }
+        })
         .catch((err) => alert("ERROR: " + err.message));
     }
   };
-
+  if (isLoading)
+    return (
+      <div className="flex justify-center mt-30 items-center">
+        <div className="animate-pulse flex space-x-4">
+          <div className="h-4">Loading...</div>
+        </div>
+      </div>
+    );
+  if (isError)
+    return (
+      <div className="flex justify-center mt-30 items-center">
+        <div className="animate-pulse flex space-x-4">
+          Could not find invoice
+        </div>
+      </div>
+    );
   return (
     <AuthGuard>
       <div className="flex items-start pl-[3vw] md:pl-[10vw] flex-col">
-        <h1 className="">NEW INVOICE </h1>
+        <h1 className="">EDITING INVOICE</h1>
       </div>
       <form
         onSubmit={handleSubmit(onSubmit)}
         className="flex justify-center border-2  items-center mx-10 mt-30 mb-80 p-6  flex-col "
       >
-        {errors.client_id && (
-          <p className="text-accent">*{errors.client_id.message}</p>
-        )}
-
-        <div className="relative inline-block group">
-          <label htmlFor="invoice-client_id">client_id</label>
-
-          <div
-            className="
-                  absolute left-1/2  -mt-16 -translate-x-1/2
-                  whitespace-nowrap rounded-md bg-background px-3 py-1 text-sm text-white
-                  opacity-0 scale-95 transition
-                  group-hover:opacity-100 group-hover:scale-100
-                  pointer-events-none border-2"
-          >
-            Uses existing client information from the database
-          </div>
-        </div>
-        <input
-          className="border-2 outline-none focus:border-accent"
-          {...register("client_id")}
-        />
-        {errors.booking_id && (
-          <p className="text-accent">*{errors.booking_id.message}</p>
-        )}
-
-        <div className="relative inline-block group">
-          <label htmlFor="invoice-booking_id">booking_id</label>
-
-          <div
-            className="
-    absolute left-1/2  -mt-16 -translate-x-1/2
-    whitespace-nowrap rounded-md bg-background px-3 py-1 text-sm text-white
-    opacity-0 scale-95 transition
-    group-hover:opacity-100 group-hover:scale-100
-    pointer-events-none border-2
-  "
-          >
-            <p>Gets client information submitted in the booking request </p>
-            <p>and creates a new client entry in the database</p>
-          </div>
-        </div>
-        <input
-          className="border-2 outline-none focus:border-accent"
-          {...register("booking_id")}
-        />
+        <p>Invoice_ID: {invoice_id}</p>
+        <span className="h-2"></span>
+        <p>Client_ID: {invoice?.invoice.client_id}</p>
+        <span className="h-2"></span>
+        <p>Booking_ID: {invoice?.invoice.booking_id}</p>
         <span className="h-10"></span>
         {/*DATE*/}
         {errors.due_date && (
@@ -333,8 +401,8 @@ export default function CreateInvoice() {
                   group-hover:opacity-100 group-hover:scale-100
                   pointer-events-none border-2"
           >
-            Enter customer's address (which updates client's stored address), or
-            leave blank to use existing client address in database
+            Enter customer's address, or leave blank to use existing client
+            address in database
           </div>
         </div>
 
@@ -362,7 +430,7 @@ export default function CreateInvoice() {
               render={({ field }) => (
                 <Select
                   {...field}
-                  options={states_data}
+                  options={states_list}
                   placeholder="N/A"
                   isClearable
                   // This ensures the styling stays consistent even on error
@@ -435,19 +503,42 @@ export default function CreateInvoice() {
           </div>
         </div>
         <div className="text-accent flex flex-col justify-center items-center">
-          {errors.address_street && <p>{errors.address_street.message}</p>}
-          {errors.address_city && <p>{errors.address_city.message}</p>}
-          {errors.address_state && <p>{errors.address_state.message}</p>}
-          {errors.address_zip && <p>{errors.address_zip.message}</p>}
-          {errors.address_country && <p>{errors.address_country.message}</p>}
+          {errors.address_street && (
+            <p>Street: {errors.address_street.message}</p>
+          )}
+          {errors.address_city && <p>City:{errors.address_city.message}</p>}
+          {errors.address_state && <p>State: {errors.address_state.message}</p>}
+          {errors.address_zip && <p>Zip:{errors.address_zip.message}</p>}
+          {errors.address_country && (
+            <p>Country:{errors.address_country.message}</p>
+          )}
         </div>
-        <span className="h-4"></span>
-        {errors.notes && <p className="text-accent">*{errors.notes.message}</p>}
+        <span className="h-10"></span>
+        {errors.notes && (
+          <p className="text-accent">Notes: {errors.notes.message}</p>
+        )}
         <label htmlFor="invoice-notes">Notes</label>
         <textarea
           className="border-2 w-100 outline-none focus:border-accent"
           {...register("notes")}
         />
+        <span className="h-10" />
+        <p>
+          Payment Complete:{" "}
+          <input type="checkbox" {...register("payment_completed")} />
+        </p>
+        <span className="h-4" />
+        {/*PAYMENT DATE*/}
+        {errors.paid_at && (
+          <p className="text-accent">*{errors.paid_at.message}</p>
+        )}
+        <label htmlFor="invoice-due_date">Payment Date</label>
+        <input
+          type="datetime-local"
+          className="border-2 "
+          {...register("paid_at")}
+        />
+
         <span className="h-10"></span>
         <button className="border-2" type="submit">
           Create Invoice

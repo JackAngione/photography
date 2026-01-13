@@ -54,23 +54,40 @@ pub struct NewInvoiceInfo {
     address_country: StateCountry,
 }
 
+#[derive(Serialize, Deserialize)]
+pub struct EditInvoiceInfo {
+    client_id: String,
+    invoice_items: Vec<NewInvoiceItem>,
+    notes: Option<String>,
+    #[serde(with = "time::serde::iso8601")]
+    due_date: OffsetDateTime,
+    address_street: Option<String>,
+    address_city: Option<String>,
+    address_state: Option<StateCountry>,
+    address_zip: Option<String>,
+    address_country: StateCountry,
+    payment_completed: bool,
+    #[serde(default, with = "time::serde::iso8601::option")]
+    paid_at: Option<OffsetDateTime>,
+}
+
 //Invoice from POSTGRES database
 #[derive(Serialize, Deserialize)]
 pub struct Invoice {
     client_id: Option<String>,
     #[serde(with = "time::serde::iso8601")]
     created_at: OffsetDateTime,
-    amount_subtotal: Option<rust_decimal::Decimal>,
+    amount_subtotal: Option<Decimal>,
     payment_method: Option<String>,
     notes: Option<String>,
-    amount_tax: Option<rust_decimal::Decimal>,
-    amount_total: Option<rust_decimal::Decimal>,
+    amount_tax: Option<Decimal>,
+    amount_total: Option<Decimal>,
     booking_id: Option<String>,
     invoice_id: String,
     #[serde(with = "time::serde::iso8601::option")]
     due_date: Option<OffsetDateTime>,
     payment_completed: bool,
-    #[serde(with = "time::serde::iso8601::option")]
+    #[serde(default, with = "time::serde::iso8601::option")]
     paid_at: Option<OffsetDateTime>,
     invoice_number: i64,
 }
@@ -200,7 +217,6 @@ pub async fn create_invoice(
 
     //add invoice items
     for item in payload.invoice_items {
-        subtotal += item.unit_price * Decimal::from(item.quantity);
         create_invoice_item(&mut tx, &new_invoice_id, item, client)
             .await
             .map_err(|e| {
@@ -386,8 +402,133 @@ pub(crate) async fn delete_invoice(
 
 pub(crate) async fn edit_invoice(
     State(state): State<AppState>,
-    Json(payload): Json<InvoiceID>,
-) -> Result<StatusCode, StatusCode> {
-    //TODO delete the invoice and all invoice_items
-    Ok(StatusCode::OK)
+    Path(invoice_id): Path<String>,
+    Json(payload): Json<EditInvoiceInfo>,
+) -> Result<(StatusCode, Json<ApiResponse>), (StatusCode, Json<ApiResponse>)> {
+    let mut tx = state.db_pool.begin().await.map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ApiResponse {
+                message: format!("Error creating postgres transaction pool: {}", e).to_string(),
+            }),
+        )
+    })?;
+
+    let client = &state.db_pool;
+    println!("Editing invoice: {}", invoice_id);
+
+    //if a new billing address is provided, update the client's address
+    if payload.address_street.is_some()
+        && payload.address_city.is_some()
+        && payload.address_state.is_some()
+        && payload.address_zip.is_some()
+        && payload.address_country.value != ""
+    {
+        client::update_client_address(
+            &payload.client_id,
+            &payload.address_street.unwrap(),
+            &payload.address_city.unwrap(),
+            &payload.address_state.unwrap().value,
+            &payload.address_zip.unwrap(),
+            &payload.address_country.value,
+            &client,
+        )
+        .await
+        .map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ApiResponse {
+                    message: format!("Error updating client address: {}", e).to_string(),
+                }),
+            )
+        })?;
+    }
+
+    //CALCULATE TOTALS
+
+    let mut subtotal = Decimal::zero();
+    //calculate subtotal
+    for item in &payload.invoice_items {
+        subtotal += item.unit_price * Decimal::from(item.quantity);
+    }
+    //UPDATE INVOICE
+    let _edit_invoice = sqlx::query_scalar!(
+        r#"UPDATE main.invoices SET amount_subtotal = $1, notes = $2,due_date = $3, payment_completed = $4,
+        paid_at = CASE
+            WHEN $4 = FALSE THEN NULL
+            ELSE $5::timestamptz
+        END
+        WHERE invoice_id=$6
+        "#,
+        subtotal,
+        payload.notes,
+        payload.due_date,
+        payload.payment_completed,
+        payload.paid_at,
+        invoice_id
+    )
+    .execute(&mut *tx)
+    .await
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ApiResponse {
+                message: format!("Error editing Invoice: {}", e).to_string(),
+            }),
+        )
+    });
+    //REMOVE ALL OLD INVOICE ITEMS
+    remove_all_invoice_items(&mut tx, &invoice_id)
+        .await
+        .map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ApiResponse {
+                    message: format!("Error removing old invoice_items from database: {}", e)
+                        .to_string(),
+                }),
+            )
+        })?;
+    //ADD NEW/EDITED INVOICE ITEMS
+    for item in payload.invoice_items {
+        create_invoice_item(&mut tx, &invoice_id, item, client)
+            .await
+            .map_err(|e| {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ApiResponse {
+                        message: format!("Error updating Invoice items into database: {}", e)
+                            .to_string(),
+                    }),
+                )
+            })?;
+    }
+
+    tx.commit().await.map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ApiResponse {
+                message: format!("Error editing invoice in database: {}", e).to_string(),
+            }),
+        )
+    })?;
+    Ok((
+        StatusCode::CREATED,
+        Json(ApiResponse {
+            message: "Invoice Successfully Updated".to_string(),
+        }),
+    ))
+}
+async fn remove_all_invoice_items(
+    tx: &mut Transaction<'_, Postgres>,
+    invoice_id: &String,
+) -> Result<(), sqlx::Error> {
+    println!("Removing all invoice items for: {}", invoice_id);
+    let _new_invoice_item = sqlx::query!(
+        "DELETE FROM main.invoice_items WHERE invoice_id=$1",
+        invoice_id,
+    )
+    .execute(&mut **tx)
+    .await?;
+    Ok(())
 }

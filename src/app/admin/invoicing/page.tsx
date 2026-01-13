@@ -1,22 +1,6 @@
 "use client";
 import AuthGuard from "@/components/AuthGuard";
-import { useEffect, useState } from "react";
-
-import { useQuery } from "@tanstack/react-query";
-import { API_URL } from "@/_utilities/API_UTILS";
 import Link from "next/link";
-
-export interface BookingRequest {
-  first_name: string;
-  last_name: string;
-  booking_id: string;
-  created_at: string;
-  phone: string | null;
-  email: string | null;
-  categories: string[] | null;
-  comments: string | null;
-  request?: unknown;
-}
 
 export default function Invoicing() {
   return (
@@ -25,11 +9,11 @@ export default function Invoicing() {
         <h1 className="">INVOICING </h1>
       </div>
       <div className="flex-col flex mt-30 px-8 justify-center gap-5 items-center">
-        <Link className="border-2 p-1.5" href="invoicing/create">
+        <Link className="border-2 p-1.5" href="/admin/invoicing/create">
           Create Invoice
         </Link>
-        <Link className="border-2 p-1.5" href="invoicing/find">
-          View/Find Invoices
+        <Link className="border-2 p-1.5" href="/admin/invoicing/find">
+          Find Invoices
         </Link>
       </div>
     </AuthGuard>

@@ -86,71 +86,7 @@ pub(crate) async fn generate_id(client: &sqlx::PgPool) -> String {
         }
     }
 }
-//take in client info and create new client if doesn't exist
-//or return client_id from database if already exists
-async fn handle_client(
-    State(state): State<AppState>,
-    Json(payload): Json<client::Client>,
-) -> Result<String, Error> {
-    println!(
-        "checking if {} {} is in database",
-        payload.first_name, payload.last_name
-    );
-    /* let new_client = ClientNew {
-        first_name: payload.first_name,
-        last_name: payload.last_name,
-        phone: payload.phone.expect("no phone"),
-        email: payload.email.expect("no email"),
-    };*/
-    //TODO CHECK IF new_client IS ALREADY IN DATABASE
-    let client = state.db_pool;
-    let user_exists = sqlx::query_as!(
-        client::Client,
-        "SELECT client_id, first_name, last_name, phone, email, address_street, address_state,  address_city, address_zip, address_country, created_at FROM main.clients WHERE first_name = $1 AND last_name = $2",
-        payload.first_name,
-        payload.last_name
-    )
-        .fetch_optional(&client)
-        .await
-        .expect("DB error");
 
-    match user_exists {
-        Some(client) => Ok(client.client_id),
-        None => {
-            //if no existing client found, create one
-            let new_client_id = generate_id(&client).await;
-            //generate random client_id and check if it already exists
-
-            //Create new client in database
-            let current_utc = OffsetDateTime::now_utc();
-            let create_client = sqlx::query!(r#"
-INSERT INTO main.clients (client_id, first_name, last_name, phone, email, address_street, address_city, address_state, address_zip, address_country, created_at)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-                "#,
-                new_client_id,
-                payload.first_name,
-                payload.last_name,
-                payload.phone,
-                payload.email,
-                payload.address_street.unwrap_or("".to_string()),
-                payload.address_city.unwrap_or("".to_string()),
-                payload.address_state.unwrap_or("".to_string()),
-                payload.address_zip.unwrap_or("".to_string()),
-                payload.address_country.unwrap_or("".to_string()),
-                current_utc,
-            )
-                .fetch_optional(&client)
-                .await;
-            match create_client {
-                Ok(_) => {
-                    println!("new client created successfully");
-                    Ok(new_client_id)
-                }
-                Err(error) => Err(error),
-            }
-        }
-    }
-}
 #[axum::debug_handler]
 pub async fn create_booking_request(
     State(state): State<AppState>,

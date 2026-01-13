@@ -1,7 +1,6 @@
 extern crate core;
 mod auth;
 mod booking;
-mod booking_tests;
 mod client;
 mod invoicing;
 mod photo_file_ops;
@@ -76,7 +75,7 @@ async fn main() {
         .expect("Failed to run migrations");
 
     //(should)CONTINUOUSLY DELETE EXPIRED SESSIONS every 6 hours
-    let deletion_task = tokio::task::spawn(
+    tokio::task::spawn(
         session_store
             .clone()
             .continuously_delete_expired(tokio::time::Duration::from_secs(21600)),
@@ -99,6 +98,10 @@ async fn main() {
 
     let app = Router::new()
         .route("/invoicing/view/{invoice_id}", get(invoicing::view_invoice))
+        .route(
+            "/invoicing/edit/{invoice_id}",
+            post(invoicing::edit_invoice),
+        )
         .route("/invoicing/find", get(invoicing::find_invoice))
         .route("/invoicing/create", post(invoicing::create_invoice))
         .route("/invoicing/edit", post(invoicing::edit_invoice))
