@@ -27,7 +27,7 @@ export default function AnaglyphShadow({
       const startTime = performance.now();
       //THIS SHOULD MATCH THE setOffset(x) ABOVE!!!
       const startOffset = 2;
-      const duration = 300; // Duration of fade animation in ms
+      const duration = 250; // Duration of fade animation in ms
 
       const animate = (currentTime: any) => {
         const elapsed = currentTime - startTime;

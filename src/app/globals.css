@@ -29,7 +29,7 @@ button {
 }
 
 h1{
-  @apply text-7xl md:text-9xl font-eva ;
+  @apply text-7xl sm:text-8xl md:text-9xl font-eva ;
 }
 a {
 @apply  hover:text-accent text-foreground no-underline;

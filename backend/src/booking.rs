@@ -1,11 +1,10 @@
-use crate::{AppState, client, invoicing};
-use axum::extract::State;
+use crate::{AppState, booking};
+use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::{Json, debug_handler};
 
 use rand::Rng;
 use serde::{Deserialize, Serialize};
-use sqlx::{Error, Postgres};
 
 use crate::auth::verify_turnstile;
 use crate::invoicing::ApiResponse;
@@ -37,7 +36,7 @@ pub struct IncomingBookingRequest {
     turnstile_token: String,
 }
 #[derive(Serialize, Deserialize)]
-pub struct BookingRequest {
+pub(crate) struct BookingRequest {
     first_name: String,
     last_name: String,
     phone: Option<String>,
@@ -48,6 +47,7 @@ pub struct BookingRequest {
     #[serde(with = "time::serde::iso8601")]
     created_at: OffsetDateTime,
     completed: bool,
+    booking_number: i64,
 }
 
 //generates a random 6-character string
@@ -159,70 +159,17 @@ pub async fn get_pending_bookings(
     let client = state.db_pool;
 
     let pending_bookings = sqlx::query_as!(
-        BookingRequest,
+        booking::BookingRequest,
         "SELECT * FROM main.booking_requests WHERE NOT completed ORDER BY created_at;"
     )
     .fetch_all(&client)
     .await;
     match pending_bookings {
-        Ok(bookings) => {
-            println!("sent json!");
-            Ok(Json(bookings))
-        }
+        Ok(bookings) => Ok(Json(bookings)),
         Err(_) => Err(StatusCode::INTERNAL_SERVER_ERROR),
     }
 }
 
-//using a booking_id, return existing client_id if it exists, otherwise create a new one
-pub async fn client_from_booking(booking_id: &str, client: &sqlx::PgPool) -> String {
-    //pull up booking request from given booking_id
-    let booking_info = sqlx::query_as!(
-        BookingRequest,
-        "SELECT   first_name,
-        last_name,
-        phone,
-        email,
-        booking_id,
-        categories,
-        comments,
-        created_at,
-        completed FROM main.booking_requests WHERE booking_id = $1",
-        booking_id
-    )
-    .fetch_optional(client)
-    .await;
-    match booking_info {
-        Ok(booking) => {
-            let booking_data = booking.unwrap();
-            let new_client_id = generate_id(&client).await;
-
-            //tries to insert a new client into the database, if it already exists, returns the client_id
-            let client_data = sqlx::query!(
-                "INSERT INTO main.clients (client_id, first_name, last_name, phone, email, created_at)
-VALUES ($1, $2, $3, $4, $5, $6)
-ON CONFLICT (email)
-DO UPDATE SET email = clients.email
-RETURNING client_id;",
-                new_client_id,
-                booking_data.first_name,
-                booking_data.last_name,
-                booking_data.phone,
-                booking_data.email,
-
-                OffsetDateTime::now_utc(),
-            )
-                .fetch_optional(client)
-                .await;
-            match client_data {
-                Ok(client) => client.unwrap().client_id,
-                Err(_) => {
-                    panic!("error creating new client");
-                }
-            }
-        }
-        Err(_) => panic!("error retrieving booking info"),
-    }
-}
 pub async fn booking_exists(
     booking_id: &str,
     database: &sqlx::PgPool,
@@ -237,4 +184,146 @@ pub async fn booking_exists(
     .expect("DB error");
 
     Ok(booking_exists.unwrap())
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct BookingComplete {
+    completed: bool,
+}
+//Mark a booking as completed in the database
+pub async fn change_completion_status(
+    State(state): State<AppState>,
+    Path(booking_id): Path<String>,
+    Json(payload): Json<BookingComplete>,
+) -> Result<(StatusCode, Json<String>), (StatusCode, Json<String>)> {
+    let client = &state.db_pool;
+    println!("changing booking completion status");
+    //change booking completion status in database
+    let _change_completion_status = sqlx::query!(
+        r#"UPDATE main.booking_requests SET completed = $1
+        WHERE booking_id=$2
+        "#,
+        &payload.completed,
+        &booking_id
+    )
+    .execute(client)
+    .await
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ApiResponse {
+                message: format!("Error changing  completion status: {}", e).to_string(),
+            }),
+        )
+    });
+    Ok((
+        StatusCode::OK,
+        Json("Booking marked as completed!".to_string()),
+    ))
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct FindBookingQuery {
+    first_name: Option<String>,
+    last_name: Option<String>,
+    name: Option<String>,
+    year: Option<String>,
+    month: Option<String>,
+    booking_number: Option<String>,
+    booking_id: Option<String>,
+    email: Option<String>,
+    phone: Option<String>,
+}
+#[derive(Serialize, Deserialize, sqlx::FromRow, Debug)]
+pub struct FoundBooking {
+    booking_number: i64,
+    booking_id: String,
+}
+pub(crate) async fn find_booking(
+    State(state): State<AppState>,
+    Query(q): Query<FindBookingQuery>,
+) -> Result<Json<Vec<FoundBooking>>, StatusCode> {
+    let client = &state.db_pool;
+    println!("-----FINDING YOUR BOOKING REQUEST!!!-----");
+    println!("{:?}", q.email);
+    let mut booking_number: Option<i64> = None;
+    //CONVERT INVOICE NUMBER STRING TO NUMBER
+    if (q.booking_number.is_some()) {
+        booking_number = q.booking_number.unwrap_or("".to_string()).parse().ok();
+    }
+    let mut month: Option<i32> = None;
+    //CONVERT MONTH STRING TO NUMBER
+    if (q.month.is_some()) {
+        month = q.month.unwrap_or("".to_string()).parse().ok();
+    }
+    let mut year: Option<i32> = None;
+    //CONVERT YEAR NUMBER STRING TO NUMBER
+    if (q.year.is_some()) {
+        year = q.year.unwrap_or("".to_string()).parse().ok();
+    }
+
+    // Check if all inputs are None before querying
+    let all_none = q.first_name.is_none()
+        && q.last_name.is_none()
+        && q.email.is_none()
+        && q.phone.is_none()
+        && booking_number.is_none()
+        && q.booking_id.is_none()
+        && year.is_none()
+        && month.is_none();
+    if all_none {
+        println!("ALL INPUTS ARE NONE!");
+        return Ok(Json(vec![])); // Return early without hitting the DB
+    }
+    //phone number matches with or without country code
+    let find_bookings = sqlx::query_as!(
+        FoundBooking,
+        r#"SELECT booking_id, booking_number FROM main.booking_requests
+        WHERE ($1::varchar IS NULL OR first_name ILIKE $1::varchar)
+        AND ($2::varchar IS NULL OR email ILIKE $2::varchar)
+        AND ($3::varchar IS NULL OR phone LIKE '%' || $3::varchar)
+        AND ($4::varchar IS NULL OR last_name ILIKE $4::varchar)
+        AND ($5::bigint IS NULL OR booking_number = $5::bigint)
+        AND ($6::varchar IS NULL OR booking_id ILIKE $6::varchar)
+        AND ($7::integer IS NULL OR EXTRACT(YEAR FROM created_at) = $7::integer)
+        AND (($8::integer IS NULL OR $7::integer IS NULL) OR EXTRACT(MONTH FROM created_at) = $8::integer)
+       "#,
+        q.first_name,
+        q.email,
+        q.phone,
+         q.last_name,
+        booking_number,
+        q.booking_id,
+        year,
+        month,
+    )
+        .fetch_all(client)
+        .await.map_err(|e| {
+        println!("Error finding booking: {}", e);
+        (StatusCode::INTERNAL_SERVER_ERROR)
+    })?;
+    /*for booking in find_bookings.iter().clone() {
+        println!("FOUND Booking: {:?}", booking);
+    }*/
+    let found_bookings = Json(find_bookings);
+    Ok(found_bookings)
+}
+
+pub async fn view_booking(
+    State(state): State<AppState>,
+    Path(booking_id): Path<String>,
+) -> Result<Json<BookingRequest>, StatusCode> {
+    let client = state.db_pool;
+
+    let booking_request = sqlx::query_as!(
+        booking::BookingRequest,
+        "SELECT * FROM main.booking_requests WHERE booking_id = $1",
+        booking_id
+    )
+    .fetch_one(&client)
+    .await;
+    match booking_request {
+        Ok(booking_request) => Ok(Json(booking_request)),
+        Err(_) => Err(StatusCode::INTERNAL_SERVER_ERROR),
+    }
 }

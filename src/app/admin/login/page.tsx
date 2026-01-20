@@ -7,7 +7,7 @@ export default function Page() {
   const [showPassword, setShowPassword] = useState(true);
   async function adminLogin() {
     const api_url = process.env.NEXT_PUBLIC_API_URL;
-    await fetch(api_url + "/login", {
+    await fetch(api_url + "/auth/login", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

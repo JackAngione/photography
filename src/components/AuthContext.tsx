@@ -25,7 +25,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const checkUser = async () => {
       try {
-        const res = await fetch(API_URL + "/verify_auth", {
+        const res = await fetch(API_URL + "/auth/verify", {
           method: "GET",
           headers: {
             "Content-Type": "application/json",
@@ -36,9 +36,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             //console.log("Authentication Successful!");
             setAuthorized(true);
           } else if (res.status === 401) {
-            console.log("unauthorized!");
+            //console.log("unauthorized!");
           } else {
-            console.log("BAHHH!");
+            //console.log("BAHHH!");
             setAuthorized(false);
           }
         });
@@ -53,7 +53,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const logout = async () => {
-    await fetch(API_URL + "/logout", {
+    await fetch(API_URL + "/auth/logout", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -61,7 +61,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       credentials: "include",
     })
       .then((res) => {
-        console.log("Logout successfulsss");
+        console.log("Logout Successful!");
         window.location.reload();
       })
       .catch((err) => {

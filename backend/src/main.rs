@@ -50,7 +50,7 @@ async fn main() {
                 .parse::<axum::http::HeaderValue>()
                 .unwrap(),
         )
-        .allow_methods([Method::GET, Method::POST])
+        .allow_methods([Method::GET, Method::POST, Method::DELETE])
         // 3. Allow headers usually sent by React (Content-Type is needed for JSON)
         .allow_headers([axum::http::header::CONTENT_TYPE])
         .allow_credentials(true)
@@ -104,21 +104,23 @@ async fn main() {
         )
         .route("/invoicing/find", get(invoicing::find_invoice))
         .route("/invoicing/create", post(invoicing::create_invoice))
-        .route("/invoicing/edit", post(invoicing::edit_invoice))
-        .route("/pending_bookings", get(booking::get_pending_bookings))
-        .route("/verify_auth", get(|| async { StatusCode::OK }))
+        .route("/booking/get_pending", get(booking::get_pending_bookings))
+        .route("/booking/view/{booking_id}", get(booking::view_booking))
+        .route("/booking/find", get(booking::find_booking))
+        .route(
+            "/booking/change_completion/{booking_id}",
+            post(booking::change_completion_status),
+        )
+        .route("/auth/verify", get(|| async { StatusCode::OK }))
         .route_layer(middleware::from_fn(auth_gaurd)) // Protect routes above
         .route("/getPhotoCategories", get(photo_file_ops::get_categories))
         .route(
             "/category/{category}",
             get(photo_file_ops::get_category_photos),
         )
-        .route(
-            "/new_booking_request",
-            post(booking::create_booking_request),
-        )
-        .route("/login", post(auth::login))
-        .route("/logout", post(auth::logout))
+        .route("/booking/create", post(booking::create_booking_request))
+        .route("/auth/login", post(auth::login))
+        .route("/auth/logout", post(auth::logout))
         .layer(session_layer)
         .layer(cors)
         .nest_service("/photo", serve_images) // Static file route

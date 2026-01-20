@@ -72,7 +72,7 @@ export default function BookingPage() {
       //setDisplayError(z.prettifyError(zodResult.error));
     } else {
       console.log("Successful form submit", zodResult.data);
-      await fetch(API_URL + "/new_booking_request", {
+      await fetch(API_URL + "/booking/create", {
         headers: {
           "Content-Type": "application/json",
         },

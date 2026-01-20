@@ -36,7 +36,7 @@ struct NewInvoiceItem {
 
 #[derive(Serialize, Deserialize)]
 pub struct ApiResponse {
-    message: String,
+    pub(crate) message: String,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -95,18 +95,6 @@ pub struct Invoice {
 struct StateCountry {
     value: String,
     label: String,
-}
-#[derive(Serialize, Deserialize)]
-pub struct FindInvoiceQuery {
-    client_first_name: Option<String>,
-    client_last_name: Option<String>,
-    /*#[serde(with = "time::serde::iso8601::option")]
-    date: Option<OffsetDateTime>,*/
-    year: Option<String>,
-    month: Option<String>,
-    invoice_number: Option<String>,
-    invoice_id: Option<String>,
-    client_id: Option<String>,
 }
 pub async fn create_invoice(
     State(state): State<AppState>,
@@ -311,11 +299,29 @@ pub async fn view_invoice(
     };
     Ok(Json(full_invoice))
 }
-
+#[derive(Serialize, Deserialize)]
+pub struct FindInvoiceQuery {
+    client_first_name: Option<String>,
+    client_last_name: Option<String>,
+    email: Option<String>,
+    phone: Option<String>,
+    /*#[serde(with = "time::serde::iso8601::option")]
+    date: Option<OffsetDateTime>,*/
+    year: Option<String>,
+    month: Option<String>,
+    invoice_number: Option<String>,
+    invoice_id: Option<String>,
+    client_id: Option<String>,
+}
+#[derive(Serialize, Deserialize, sqlx::FromRow, Debug)]
+pub struct FoundInvoice {
+    invoice_number: i64,
+    invoice_id: String,
+}
 pub(crate) async fn find_invoice(
     State(state): State<AppState>,
     Query(q): Query<FindInvoiceQuery>,
-) -> Result<Json<Vec<String>>, StatusCode> {
+) -> Result<Json<Vec<FoundInvoice>>, StatusCode> {
     let client = &state.db_pool;
     println!("-----FINDING YOUR INVOICE!!!-----");
 
@@ -324,27 +330,38 @@ pub(crate) async fn find_invoice(
     }*/
     let mut invoice_number: Option<i64> = None;
     //CONVERT INVOICE NUMBER STRING TO NUMBER
-    if (q.invoice_number.is_some()) {
+    if q.invoice_number.is_some() {
         invoice_number = q.invoice_number.unwrap_or("".to_string()).parse().ok();
     }
     let mut month: Option<i32> = None;
     //CONVERT MONTH STRING TO NUMBER
-    if (q.month.is_some()) {
+    if q.month.is_some() {
         month = q.month.unwrap_or("".to_string()).parse().ok();
     }
     let mut year: Option<i32> = None;
     //CONVERT YEAR NUMBER STRING TO NUMBER
-    if (q.year.is_some()) {
+    if q.year.is_some() {
         year = q.year.unwrap_or("".to_string()).parse().ok();
     }
 
     let mut client_id: Option<String> = None;
     //get client id using first and last name if no client_id is provided
-    if q.client_id.is_none() && (q.client_first_name.is_some() || q.client_last_name.is_some()) {
+    if q.client_id.is_none()
+        && (q.client_first_name.is_some()
+            || q.client_last_name.is_some()
+            || q.email.is_some()
+            || q.phone.is_some())
+    {
         let find_client = sqlx::query_scalar!(
-            "SELECT client_id FROM main.clients WHERE first_name ILIKE $1 OR last_name ILIKE $2",
+            "SELECT client_id FROM main.clients
+            WHERE ($1::varchar IS NULL OR first_name ILIKE $1)
+            AND ($2::varchar IS NULL OR last_name ILIKE $2)
+            AND ($3::varchar IS NULL OR email ILIKE $3::varchar)
+            AND ($4::varchar IS NULL OR phone LIKE '%' || $4::varchar)",
             q.client_first_name,
-            q.client_last_name
+            q.client_last_name,
+            q.email,
+            q.phone
         )
         .fetch_optional(client)
         .await;
@@ -368,8 +385,9 @@ pub(crate) async fn find_invoice(
         println!("ALL INPUTS ARE NONE!");
         return Ok(Json(vec![])); // Return early without hitting the DB
     }
-    let find_invoices = sqlx::query_scalar!(
-        r#"SELECT invoice_id FROM main.invoices
+    let find_invoices = sqlx::query_as!(
+        FoundInvoice,
+        r#"SELECT invoice_id, invoice_number FROM main.invoices
         WHERE ($1::varchar IS NULL OR client_id = $1)
         AND ($2::bigint IS NULL OR invoice_number = $2::bigint)
         AND ($3::varchar IS NULL OR invoice_id = $3::varchar)
@@ -384,20 +402,12 @@ pub(crate) async fn find_invoice(
     )
     .fetch_all(client)
     .await;
-    for invoice in find_invoices.iter().clone() {
+    /*for invoice in find_invoices.iter().clone() {
         println!("FOUND INVOICE: {:?}", invoice);
-    }
+    }*/
     let found_invoices = Json(find_invoices.unwrap());
 
     Ok(found_invoices)
-}
-
-pub(crate) async fn delete_invoice(
-    State(state): State<AppState>,
-    Json(payload): Json<InvoiceID>,
-) -> Result<StatusCode, StatusCode> {
-    //TODO delete the invoice and all invoice_items
-    Ok(StatusCode::OK)
 }
 
 pub(crate) async fn edit_invoice(
@@ -519,6 +529,15 @@ pub(crate) async fn edit_invoice(
         }),
     ))
 }
+pub(crate) async fn delete_invoice(
+    State(state): State<AppState>,
+    Json(payload): Json<InvoiceID>,
+) -> Result<StatusCode, StatusCode> {
+    //TODO delete the invoice and all invoice_items
+
+    Ok(StatusCode::OK)
+}
+
 async fn remove_all_invoice_items(
     tx: &mut Transaction<'_, Postgres>,
     invoice_id: &String,

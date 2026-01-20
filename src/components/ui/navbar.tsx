@@ -11,8 +11,8 @@ export default function Navbar() {
       <AuthGuard>
         <nav className="flex flex-col justify-center items-start pl-8">
           <div className="flex gap-10">
-            <Link className="hover:text-accent" href="/admin/booking_requests">
-              Booking Requests
+            <Link className="hover:text-accent" href="/admin/booking">
+              Booking
             </Link>
             <Link className="hover:text-accent" href="/admin/invoicing">
               Invoicing
@@ -31,7 +31,7 @@ export default function Navbar() {
         <Link className="hover:text-accent" href="/pricing">
           PRICING
         </Link>
-        <Link className="hover:text-accent" href="/booking">
+        <Link className="hover:text-accent" href="/booking_form">
           BOOKING
         </Link>
       </nav>

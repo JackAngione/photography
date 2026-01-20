@@ -1,29 +1,17 @@
 "use client";
 import AuthGuard from "@/components/AuthGuard";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { useQuery } from "@tanstack/react-query";
 import { API_URL } from "@/_utilities/API_UTILS";
-import DisplayBookingRequest from "@/app/admin/booking_requests/components/view_booking_request";
-
-export interface BookingRequest {
-  first_name: string;
-  last_name: string;
-  booking_id: string;
-  created_at: string;
-  phone: string | null;
-  email: string | null;
-  categories: string[] | null;
-  comments: string | null;
-  request?: unknown;
-}
+import BookingRequestPreview from "@/app/admin/booking/pending/components/booking_request_preview";
 
 export default function PendingBookingsPage() {
   //retrieve all pending bookings from the database
   const { data: bookings } = useQuery({
     queryKey: ["pending_bookings"],
     queryFn: async () => {
-      const response = await fetch(API_URL + "/pending_bookings", {
+      const response = await fetch(API_URL + "/booking/get_pending", {
         // This ensures cookies/authorization headers are sent
         credentials: "include",
       });
@@ -33,13 +21,34 @@ export default function PendingBookingsPage() {
       return response.json();
     },
   });
+  async function markCompleted() {
+    const res = await fetch(
+      API_URL + "/booking/change_completion/" + activeBooking?.booking_id,
+      {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ completed: true }),
+      },
+    );
+    const data = await res.json();
+    if (!res.ok) {
+      alert("Error marking Booking as completed: " + data.message);
+    } else {
+      alert("Booking marked as completed!");
+      window.location.reload();
+    }
+  }
   const [activeIndex, setActiveIndex] = useState(0);
   const activeBooking = bookings?.[activeIndex];
   return (
     <AuthGuard>
-      <div className="flex items-start pl-[3vw] md:pl-[10vw] flex-col">
-        <h1 className="">Booking </h1>
-        <h1>Requests</h1>
+      <div className="flex flex-col items-start pl-[3vw] md:pl-[10vw] xl:flex-row ">
+        <h1 className="mr-6">Pending</h1>
+        <h1 className="mr-6">Booking </h1>
+        <h1 className="mr-6">Requests</h1>
       </div>
       <div className="flex mt-30  px-8 justify-center gap-5 items-start">
         <div className="flex-col mt-10 flex">
@@ -63,18 +72,31 @@ export default function PendingBookingsPage() {
           >
             Prev
           </button>
-          <button className="outline-2 mt-8" onClick={() => {}}>
-            Edit Invoice
+          <span className="h-4" />
+
+          <button
+            className="outline-2 mt-8"
+            onClick={() => {
+              const confirmed = window.confirm(
+                "Mark Current Booking as Complete?",
+              );
+              if (confirmed) {
+                markCompleted().then(() => {});
+              }
+            }}
+          >
+            Mark As Complete
           </button>
         </div>
 
         <div className="w-[80vw]">
-          <DisplayBookingRequest request={activeBooking} />
+          <BookingRequestPreview request={activeBooking} />
         </div>
       </div>
       <p className="flex mt-4 justify-center items-center">
         {activeIndex + 1} of {bookings?.length} bookings
       </p>
+      <p className="mb-20" />
     </AuthGuard>
   );
 }
