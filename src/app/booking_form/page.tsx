@@ -6,8 +6,23 @@ import { z } from "zod";
 import Select from "react-select";
 import { API_URL, TURNSTILE_SITE_KEY } from "@/_utilities/API_UTILS";
 import { Turnstile } from "@marsidev/react-turnstile";
-import { useState } from "react";
+import React, { useEffect, useState } from "react";
+
+// Get all unique IANA timezone names
+const timezones = Intl.supportedValuesOf("timeZone").map((tz) => ({
+  value: tz,
+  label: tz.replace(/_/g, " "),
+}));
 export default function BookingPage() {
+  // Detect OS timezone on mount
+  const detectedTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  useEffect(() => {
+    const defaultOption = timezones.find((t) => t.value === detectedTz)?.value;
+    if (defaultOption !== undefined) {
+      //setSelectedTz(defaultOption);
+      setValue("timezone", defaultOption, { shouldValidate: true });
+    }
+  }, []);
   const BookingSchema = z
     .object({
       first_name: z.string().min(1, "First name is required"),
@@ -33,6 +48,7 @@ export default function BookingPage() {
         .string("must write something in the comments box")
         .min(5, "Comments must be at least 5 characters")
         .max(3000, "Comments must be less than 3000 characters"),
+      timezone: z.string().optional(),
       turnstile_token: z.string("Invalid Token"),
     })
     .refine(
@@ -92,7 +108,7 @@ export default function BookingPage() {
   };
   const category_options = [
     { value: "portraiture", label: "Portraiture" },
-    { value: "real_estate", label: "Real Estate (indoor/outdoor)" },
+    { value: "real_estate", label: "Real Estate" },
     { value: "automotive", label: "Automotive" },
     { value: "event", label: "Event" },
     { value: "product", label: "Product" },
@@ -101,8 +117,8 @@ export default function BookingPage() {
 
   return (
     <>
-      <div className="flex items-start flex-col  ">
-        <h1 className="pl-[3vw] md:pl-[10vw]">BOOKING</h1>
+      <div className="flex flex-col ">
+        <h1 className="pl-[3vw] sm:pl-[6vw]">BOOKING</h1>
       </div>
       <div className="flex flex-col  justify-center items-center ">
         {/*{displayError}*/}
@@ -209,20 +225,74 @@ export default function BookingPage() {
             <p className="text-accent">*{errors.turnstile_token.message}</p>
           )}
 
-          <Turnstile
-            className="justify-center items-center border-2"
-            siteKey={TURNSTILE_SITE_KEY!}
-            onSuccess={(token) =>
-              setValue("turnstile_token", token, { shouldValidate: true })
-            }
-            onExpire={() =>
-              setValue("turnstile_token", "", { shouldValidate: true })
-            }
-            options={{
-              theme: "dark",
-              size: "normal",
-            }}
-          />
+          {detectedTz !== "America/New_York" ? (
+            <div>
+              <label htmlFor="booking-contact">
+                Please enter your timezone
+              </label>
+              <Controller
+                name="timezone"
+                control={control}
+                render={({ field: { onChange, value, ref, ...field } }) => (
+                  <Select
+                    instanceId="timezone-select"
+                    {...field}
+                    options={timezones}
+                    // 2. Transform the VALUE for React Select (String -> Object)
+                    // We need to find the full object based on the string value stored in the form
+                    value={timezones.find((c) => c.value === value) || null}
+                    // 3. Transform the ONCHANGE for the Form (Object -> String)
+                    // We pull the .value out of the selected option
+                    onChange={(selectedOption) => {
+                      onChange(selectedOption ? selectedOption.value : "");
+                    }}
+                    isSearchable={true}
+                    classNames={{
+                      input: () => "mx-1.5",
+                      placeholder: () => " mx-1.5",
+                      control: (state) =>
+                        state.isFocused
+                          ? "border-2 border-accent"
+                          : "border-2 border-foreground",
+                      menu: () => "bg-background border-2 border-foreground",
+                      option: (state) =>
+                        state.isSelected
+                          ? "text-accent px-1.5 border-accent"
+                          : state.isFocused
+                            ? "text-accent px-1.5 border-accent"
+                            : "border-accent px-1.5",
+                      multiValue: () =>
+                        "bg-background border-1 px-1.5 mx-1.5 my-0.5",
+                      multiValueLabel: () => "text-foreground",
+                      multiValueRemove: () => "hover:text-accent",
+                    }}
+                    unstyled
+                    placeholder="Search timezone..."
+                  />
+                )}
+              />
+            </div>
+          ) : (
+            <></>
+          )}
+          <span className="h-4"></span>
+          <div className="justify-center flex">
+            <Turnstile
+              className="outline-2"
+              siteKey={TURNSTILE_SITE_KEY!}
+              onSuccess={(token) =>
+                setValue("turnstile_token", token, { shouldValidate: true })
+              }
+              onExpire={() =>
+                setValue("turnstile_token", "", { shouldValidate: true })
+              }
+              options={{
+                theme: "dark",
+                size: "normal",
+              }}
+            />
+          </div>
+
           <span className="h-4"></span>
           <button className="border-2" type="submit">
             Submit

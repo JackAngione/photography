@@ -7,7 +7,7 @@ use rand::Rng;
 use serde::{Deserialize, Serialize};
 
 use crate::auth::verify_turnstile;
-use crate::invoicing::ApiResponse;
+use crate::invoicing::invoice::ApiResponse;
 use time::OffsetDateTime;
 //
 
@@ -33,6 +33,7 @@ pub struct IncomingBookingRequest {
     email: Option<String>,
     categories: Vec<Category>,
     comments: Option<String>,
+    timezone: Option<String>,
     turnstile_token: String,
 }
 #[derive(Serialize, Deserialize)]
@@ -48,6 +49,7 @@ pub(crate) struct BookingRequest {
     created_at: OffsetDateTime,
     completed: bool,
     booking_number: i64,
+    timezone: Option<String>,
 }
 
 //generates a random 6-character string
@@ -123,7 +125,7 @@ pub async fn create_booking_request(
     //create new booking request in database
     let current_utc = OffsetDateTime::now_utc();
     let create_booking = sqlx::query!(
-                "INSERT INTO main.booking_requests (booking_id, created_at, first_name, last_name, phone, email, categories, comments, completed) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
+                "INSERT INTO main.booking_requests (booking_id, created_at, first_name, last_name, phone, email, categories, comments, timezone, completed) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
                 new_booking_id,
                 current_utc,
                 payload.first_name,
@@ -132,6 +134,7 @@ pub async fn create_booking_request(
                 payload.email,
                 &category_values,
                 payload.comments.unwrap_or("".to_string()),
+                payload.timezone,
                 false
     )
         .fetch_optional(&client)
@@ -159,7 +162,7 @@ pub async fn get_pending_bookings(
     let client = state.db_pool;
 
     let pending_bookings = sqlx::query_as!(
-        booking::BookingRequest,
+        BookingRequest,
         "SELECT * FROM main.booking_requests WHERE NOT completed ORDER BY created_at;"
     )
     .fetch_all(&client)
@@ -316,7 +319,7 @@ pub async fn view_booking(
     let client = state.db_pool;
 
     let booking_request = sqlx::query_as!(
-        booking::BookingRequest,
+        BookingRequest,
         "SELECT * FROM main.booking_requests WHERE booking_id = $1",
         booking_id
     )

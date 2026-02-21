@@ -47,6 +47,7 @@ export default function CreateInvoice() {
         .optional(),
       address_state: z
         .object({ value: z.string(), label: z.string() })
+        .nullable()
         .optional(),
 
       address_zip: z
@@ -57,6 +58,7 @@ export default function CreateInvoice() {
       address_country: z
         .object({ value: z.string(), label: z.string() })
         .optional(),
+      amount_tax: z.number().min(0, "Must be >= 0").optional(),
     })
     .refine(
       (data) => {
@@ -83,8 +85,13 @@ export default function CreateInvoice() {
       path: ["client_id"], // where the error shows; you can change this
     });
 
-  const country_list = useMemo(() => countryList().getData(), []);
-  const defaultCountry = country_list.find((opt) => opt.value === "US");
+  let country_list = useMemo(() => countryList().getData(), []);
+  //
+  country_list.forEach((o) => (o.value = o.label));
+
+  const defaultCountry = country_list.find(
+    (opt) => opt.value === "United States",
+  );
   const defaultState = states_data.find((opt) => opt.value === "MD");
 
   type FormData = z.infer<typeof InvoiceFormSchema>;
@@ -100,6 +107,7 @@ export default function CreateInvoice() {
       client_id: "",
       invoice_items: [{ description: "", quantity: 0, unit_price: 0.0 }],
       notes: "",
+      amount_tax: 0.0,
       address_country: defaultCountry || undefined,
       address_state: defaultState || undefined,
     },
@@ -111,7 +119,7 @@ export default function CreateInvoice() {
   //RUN ON FORM SUBMIT
   const onSubmit = async (values: any) => {
     const chosenDueDate = values.due_date;
-
+    console.log(chosenDueDate);
     // JS interprets this string using the browser's current timezone.
     const dateWithCurrentOffset = new Date(chosenDueDate);
     //console.log(dateWithCurrentOffset.toISOString());
@@ -151,7 +159,7 @@ export default function CreateInvoice() {
 
   return (
     <AuthGuard>
-      <div className="flex items-start pl-[3vw] md:pl-[10vw] flex-col">
+      <div className="flex pl-[3vw] sm:pl-[6vw] flex-col">
         <h1 className="">NEW INVOICE </h1>
       </div>
       <form
@@ -320,6 +328,17 @@ export default function CreateInvoice() {
         </div>
 
         <span className="h-10"></span>
+        {errors.amount_tax && (
+          <p className="text-accent">*{errors.amount_tax.message}</p>
+        )}
+        <label htmlFor="invoice-tax">Tax (as decimal: 8% = 0.08)</label>
+        <input
+          type="number"
+          step="0.01"
+          className="border-2 w-20 outline-none focus:border-accent"
+          {...register("amount_tax", { valueAsNumber: true })}
+        />
+        <span className="h-10"></span>
 
         {/*ADDRESS*/}
         <div className="relative inline-block group">
@@ -327,7 +346,7 @@ export default function CreateInvoice() {
 
           <div
             className="
-                  absolute left-1/2  -mt-16 -translate-x-1/2
+                  absolute left-1/2 -mt-16 -translate-x-1/2
                   whitespace-nowrap rounded-md bg-black px-3 py-1 text-sm text-white
                   opacity-0 scale-95 transition
                   group-hover:opacity-100 group-hover:scale-100

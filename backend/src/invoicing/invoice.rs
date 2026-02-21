@@ -15,17 +15,17 @@ pub struct InvoiceID {
 }
 #[derive(Serialize, Deserialize)]
 pub struct ReturnFullInvoice {
-    invoice: Invoice,
-    invoice_items: Vec<InvoiceItem>,
-    client: Client,
+    pub(crate) invoice: Invoice,
+    pub(crate) invoice_items: Vec<InvoiceItem>,
+    pub(crate) client: Client,
 }
 #[derive(Serialize, Deserialize)]
-struct InvoiceItem {
+pub(crate) struct InvoiceItem {
     invoice_id: String,
     invoice_item_id: String,
-    description: String,
-    quantity: i32,
-    unit_price: Decimal,
+    pub(crate) description: String,
+    pub(crate) quantity: i32,
+    pub(crate) unit_price: Decimal,
 }
 #[derive(Serialize, Deserialize)]
 struct NewInvoiceItem {
@@ -44,6 +44,7 @@ pub struct NewInvoiceInfo {
     client_id: Option<String>,
     booking_id: Option<String>,
     invoice_items: Vec<NewInvoiceItem>,
+    amount_tax: Option<Decimal>,
     notes: Option<String>,
     #[serde(with = "time::serde::iso8601")]
     due_date: OffsetDateTime,
@@ -58,6 +59,7 @@ pub struct NewInvoiceInfo {
 pub struct EditInvoiceInfo {
     client_id: String,
     invoice_items: Vec<NewInvoiceItem>,
+    amount_tax: Option<Decimal>,
     notes: Option<String>,
     #[serde(with = "time::serde::iso8601")]
     due_date: OffsetDateTime,
@@ -76,25 +78,26 @@ pub struct EditInvoiceInfo {
 pub struct Invoice {
     client_id: Option<String>,
     #[serde(with = "time::serde::iso8601")]
-    created_at: OffsetDateTime,
-    amount_subtotal: Option<Decimal>,
-    payment_method: Option<String>,
-    notes: Option<String>,
-    amount_tax: Option<Decimal>,
-    amount_total: Option<Decimal>,
-    booking_id: Option<String>,
-    invoice_id: String,
+    pub(crate) created_at: OffsetDateTime,
+    pub(crate) amount_subtotal: Option<Decimal>,
+    pub(crate) payment_method: Option<String>,
+    pub(crate) notes: Option<String>,
+    pub(crate) amount_tax: Option<Decimal>,
+    pub(crate) amount_total: Option<Decimal>,
+    pub(crate) booking_id: Option<String>,
+    pub(crate) invoice_id: String,
     #[serde(with = "time::serde::iso8601::option")]
-    due_date: Option<OffsetDateTime>,
-    payment_completed: bool,
+    pub(crate) due_date: Option<OffsetDateTime>,
+    pub(crate) payment_completed: bool,
     #[serde(default, with = "time::serde::iso8601::option")]
-    paid_at: Option<OffsetDateTime>,
-    invoice_number: i64,
+    pub(crate) paid_at: Option<OffsetDateTime>,
+    pub(crate) invoice_number: i64,
 }
+
 #[derive(Serialize, Deserialize)]
-struct StateCountry {
-    value: String,
-    label: String,
+pub struct StateCountry {
+    pub(crate) value: String,
+    pub(crate) label: String,
 }
 pub async fn create_invoice(
     State(state): State<AppState>,
@@ -150,16 +153,16 @@ pub async fn create_invoice(
     };
     //if a new billing address is provided, update the client's address
     if payload.address_street.is_some()
-        && payload.address_city.is_some()
-        && payload.address_state.is_some()
-        && payload.address_zip.is_some()
-        && payload.address_country.value != ""
+        || payload.address_city.is_some()
+        || payload.address_state.is_some()
+        || payload.address_zip.is_some()
+        || payload.address_country.value != ""
     {
         client::update_client_address(
             &client_id,
             &payload.address_street.unwrap(),
             &payload.address_city.unwrap(),
-            &payload.address_state.unwrap().value,
+            payload.address_state,
             &payload.address_zip.unwrap(),
             &payload.address_country.value,
             &client,
@@ -186,11 +189,12 @@ pub async fn create_invoice(
     }
 
     let _new_invoice = sqlx::query_scalar!(
-        "INSERT INTO main.invoices (invoice_id, client_id, created_at, amount_subtotal, notes, booking_id,due_date) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+        "INSERT INTO main.invoices (invoice_id, client_id, created_at, amount_subtotal, amount_tax, notes, booking_id,due_date) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
         new_invoice_id,
         client_id,
         OffsetDateTime::now_utc(),
         subtotal,
+        payload.amount_tax.unwrap_or(Decimal::zero()),
         payload.notes,
         payload.booking_id,
         payload.due_date,
@@ -264,7 +268,7 @@ pub async fn view_invoice(
     let db_client = state.db_pool;
     println!("Getting invoice: {}", invoice_id.clone());
     let invoice = sqlx::query_as!(
-        invoicing::Invoice,
+        Invoice,
         "SELECT * FROM main.invoices WHERE invoice_id = $1",
         invoice_id
     )
@@ -273,7 +277,7 @@ pub async fn view_invoice(
     .map_err(|_| StatusCode::NOT_FOUND)?;
 
     let invoice_items = sqlx::query_as!(
-        invoicing::InvoiceItem,
+        InvoiceItem,
         "SELECT * FROM main.invoice_items WHERE invoice_id = $1",
         invoice_id
     )
@@ -281,7 +285,7 @@ pub async fn view_invoice(
     .await
     .map_err(|_| StatusCode::NOT_FOUND)?;
     let client = sqlx::query_as!(
-        client::Client,
+        Client,
         r#" SELECT c.*
                     FROM main.invoices i
                     JOIN main.clients c
@@ -299,6 +303,49 @@ pub async fn view_invoice(
     };
     Ok(Json(full_invoice))
 }
+/*//get an invoice by invoice_id for the backend
+
+pub async fn get_all_invoice_data(
+    tx: &mut Transaction<'_, Postgres>,
+    invoice_id: &String,
+) -> Result<Json<ReturnFullInvoice>> {
+    println!("Getting invoice: {}", invoice_id.clone());
+    let invoice = sqlx::query_as!(
+        Invoice,
+        "SELECT * FROM main.invoices WHERE invoice_id = $1",
+        invoice_id
+    )
+    .fetch_one(&mut **tx)
+    .await
+    .map_err(|_| StatusCode::NOT_FOUND)?;
+
+    let invoice_items = sqlx::query_as!(
+        InvoiceItem,
+        "SELECT * FROM main.invoice_items WHERE invoice_id = $1",
+        invoice_id
+    )
+    .fetch_all(&mut **tx)
+    .await
+    .map_err(|_| StatusCode::NOT_FOUND)?;
+    let client = sqlx::query_as!(
+        Client,
+        r#" SELECT c.*
+                    FROM main.invoices i
+                    JOIN main.clients c
+                    ON c.client_id = i.client_id
+                    WHERE i.invoice_id = $1"#,
+        invoice_id
+    )
+    .fetch_one(&mut **tx)
+    .await
+    .map_err(|_| StatusCode::NOT_FOUND)?;
+    let full_invoice = ReturnFullInvoice {
+        invoice,
+        invoice_items,
+        client,
+    };
+    Ok(Json(full_invoice))
+}*/
 #[derive(Serialize, Deserialize)]
 pub struct FindInvoiceQuery {
     client_first_name: Option<String>,
@@ -415,6 +462,7 @@ pub(crate) async fn edit_invoice(
     Path(invoice_id): Path<String>,
     Json(payload): Json<EditInvoiceInfo>,
 ) -> Result<(StatusCode, Json<ApiResponse>), (StatusCode, Json<ApiResponse>)> {
+    println!("Editing invoice: {}", invoice_id);
     let mut tx = state.db_pool.begin().await.map_err(|e| {
         (
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -425,7 +473,6 @@ pub(crate) async fn edit_invoice(
     })?;
 
     let client = &state.db_pool;
-    println!("Editing invoice: {}", invoice_id);
 
     //if a new billing address is provided, update the client's address
     if payload.address_street.is_some()
@@ -438,7 +485,7 @@ pub(crate) async fn edit_invoice(
             &payload.client_id,
             &payload.address_street.unwrap(),
             &payload.address_city.unwrap(),
-            &payload.address_state.unwrap().value,
+            payload.address_state,
             &payload.address_zip.unwrap(),
             &payload.address_country.value,
             &client,
@@ -467,14 +514,15 @@ pub(crate) async fn edit_invoice(
         paid_at = CASE
             WHEN $4 = FALSE THEN NULL
             ELSE $5::timestamptz
-        END
-        WHERE invoice_id=$6
+        END, amount_tax = $6
+        WHERE invoice_id=$7
         "#,
         subtotal,
         payload.notes,
         payload.due_date,
         payload.payment_completed,
         payload.paid_at,
+        payload.amount_tax.unwrap_or(Decimal::zero()),
         invoice_id
     )
     .execute(&mut *tx)

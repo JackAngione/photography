@@ -26,7 +26,7 @@ pub(crate) async fn get_categories(req: axum::extract::Request) -> Json<Vec<Stri
     }
     Json(image_files)
 }
-
+//get all photos in a category
 pub(crate) async fn get_category_photos(
     axum_path(category): axum_path<String>,
 ) -> Result<Json<Vec<String>>, StatusCode> {

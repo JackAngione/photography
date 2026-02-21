@@ -5,7 +5,7 @@ import Link from "next/link";
 export default function Invoicing() {
   return (
     <AuthGuard>
-      <div className="flex items-start pl-[3vw] md:pl-[10vw] flex-col">
+      <div className="flex items-start pl-[3vw] sm:pl-[6vw] flex-col">
         <h1 className="">INVOICING </h1>
       </div>
       <div className="flex-col flex mt-30 px-8 justify-center gap-5 items-center">

@@ -45,15 +45,15 @@ export default function PendingBookingsPage() {
   const activeBooking = bookings?.[activeIndex];
   return (
     <AuthGuard>
-      <div className="flex flex-col items-start pl-[3vw] md:pl-[10vw] xl:flex-row ">
-        <h1 className="mr-6">Pending</h1>
-        <h1 className="mr-6">Booking </h1>
-        <h1 className="mr-6">Requests</h1>
+      <div className="flex flex-col  pl-[3vw] sm:pl-[6vw] 2xl:flex-row ">
+        <h1 className="mr-6">PENDING</h1>
+        <h1 className="mr-6">BOOKING </h1>
+        <h1 className="mr-6">REQUESTS</h1>
       </div>
       <div className="flex mt-30  px-8 justify-center gap-5 items-start">
         <div className="flex-col mt-10 flex">
           <button
-            className="outline-2 "
+            className="border-2 "
             onClick={() => {
               setActiveIndex((activeIndex + 1) % bookings?.length);
             }}
@@ -61,7 +61,7 @@ export default function PendingBookingsPage() {
             Next
           </button>
           <button
-            className="outline-2 mt-4"
+            className="border-2 mt-4"
             onClick={() => {
               if (activeIndex !== 0) {
                 setActiveIndex(activeIndex - 1);
@@ -75,7 +75,7 @@ export default function PendingBookingsPage() {
           <span className="h-4" />
 
           <button
-            className="outline-2 mt-8"
+            className="border-2 mt-8"
             onClick={() => {
               const confirmed = window.confirm(
                 "Mark Current Booking as Complete?",

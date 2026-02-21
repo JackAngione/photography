@@ -122,7 +122,7 @@ export default function FindBookingRequest() {
 
   return (
     <AuthGuard>
-      <div className="flex items-start pl-[3vw] md:pl-[10vw] flex-col">
+      <div className="flex pl-[3vw] sm:pl-[6vw] flex-col">
         <h1 className="">FIND BOOKING REQUESTS </h1>
       </div>
 

@@ -107,8 +107,8 @@ export default function EditInvoice() {
         .optional(),
       address_state: z
         .object({ value: z.string(), label: z.string() })
-        .optional(),
-
+        .optional()
+        .nullable(),
       address_zip: z
         .string()
         .min(4, "Zip must be >= 4 characters")
@@ -119,6 +119,7 @@ export default function EditInvoice() {
         .optional(),
       paid_at: z.string().optional(),
       payment_completed: z.boolean(),
+      amount_tax: z.number().min(0, "Must be >= 0").optional(),
     })
     .refine(
       (data) => {
@@ -153,6 +154,7 @@ export default function EditInvoice() {
     );
 
   const country_list = useMemo(() => countryList().getData(), []);
+  country_list.forEach((o) => (o.value = o.label));
   const isoToDatetimeLocal = (iso: string) => {
     if (!iso) return "";
     const d = new Date(iso);
@@ -185,6 +187,7 @@ export default function EditInvoice() {
         ) ?? undefined,
       paid_at: isoToDatetimeLocal(invoice?.invoice?.paid_at) ?? undefined,
       payment_completed: invoice?.invoice?.payment_completed,
+      amount_tax: invoice?.invoice?.amount_tax,
     },
   });
   const { fields, append, remove } = useFieldArray({
@@ -260,8 +263,9 @@ export default function EditInvoice() {
     );
   return (
     <AuthGuard>
-      <div className="flex items-start pl-[3vw] md:pl-[10vw] flex-col">
-        <h1 className="">EDITING INVOICE</h1>
+      <div className="flex  pl-[3vw] sm:pl-[6vw] flex-col">
+        <h1 className="">EDITING</h1>
+        <h1> INVOICE #{invoice?.invoice.invoice_number}</h1>
       </div>
       <form
         onSubmit={handleSubmit(onSubmit)}
@@ -388,7 +392,17 @@ export default function EditInvoice() {
         </div>
 
         <span className="h-10"></span>
-
+        {errors.amount_tax && (
+          <p className="text-accent">*{errors.amount_tax.message}</p>
+        )}
+        <label htmlFor="invoice-tax">Tax (as decimal: 8% = 0.08)</label>
+        <input
+          type="number"
+          step="0.01"
+          className="border-2 w-20 outline-none focus:border-accent"
+          {...register("amount_tax", { valueAsNumber: true })}
+        />
+        <span className="h-10"></span>
         {/*ADDRESS*/}
         <div className="relative inline-block group">
           <p>Customer Address</p>
@@ -541,7 +555,7 @@ export default function EditInvoice() {
 
         <span className="h-10"></span>
         <button className="border-2" type="submit">
-          Create Invoice
+          Save Invoice
         </button>
       </form>
     </AuthGuard>

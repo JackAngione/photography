@@ -6,6 +6,9 @@ mod invoicing;
 mod photo_file_ops;
 
 use crate::auth::auth_gaurd;
+use crate::invoicing::invoice::{create_invoice, edit_invoice, find_invoice, view_invoice};
+
+use crate::invoicing::invoice_generation::generate_pdf;
 use axum::http::{Method, StatusCode, header};
 use axum::{Router, middleware, routing::get, routing::post};
 use dotenvy::dotenv;
@@ -13,8 +16,7 @@ use sqlx::postgres::PgPoolOptions;
 use sqlx::{Pool, Postgres};
 use std::env;
 use std::path::Path;
-
-use tower_http::cors::{Any, CorsLayer};
+use tower_http::cors::CorsLayer;
 use tower_http::services::ServeDir;
 use tower_sessions::cookie::time::Duration;
 use tower_sessions::{ExpiredDeletion, Expiry, SessionManagerLayer};
@@ -97,13 +99,10 @@ async fn main() {
         .with_expiry(Expiry::OnInactivity(Duration::hours(24)));
 
     let app = Router::new()
-        .route("/invoicing/view/{invoice_id}", get(invoicing::view_invoice))
-        .route(
-            "/invoicing/edit/{invoice_id}",
-            post(invoicing::edit_invoice),
-        )
-        .route("/invoicing/find", get(invoicing::find_invoice))
-        .route("/invoicing/create", post(invoicing::create_invoice))
+        .route("/invoicing/view/{invoice_id}", get(view_invoice))
+        .route("/invoicing/edit/{invoice_id}", post(edit_invoice))
+        .route("/invoicing/find", get(find_invoice))
+        .route("/invoicing/create", post(create_invoice))
         .route("/booking/get_pending", get(booking::get_pending_bookings))
         .route("/booking/view/{booking_id}", get(booking::view_booking))
         .route("/booking/find", get(booking::find_booking))
@@ -111,6 +110,7 @@ async fn main() {
             "/booking/change_completion/{booking_id}",
             post(booking::change_completion_status),
         )
+        .route("/invoicing/print/{invoice_id}", get(generate_pdf))
         .route("/auth/verify", get(|| async { StatusCode::OK }))
         .route_layer(middleware::from_fn(auth_gaurd)) // Protect routes above
         .route("/getPhotoCategories", get(photo_file_ops::get_categories))

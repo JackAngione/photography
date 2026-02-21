@@ -131,7 +131,7 @@ export default function SearchBox() {
 
   return (
     <AuthGuard>
-      <div className="flex items-start pl-[3vw] md:pl-[10vw] flex-col">
+      <div className="flex items-start pl-[3vw] sm:pl-[6vw] flex-col">
         <h1 className="">FIND INVOICE </h1>
       </div>
       <div className="flex justify-center items-center flex-col gap-2 mt-30 px-8">

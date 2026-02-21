@@ -1,4 +1,5 @@
 use crate::booking::generate_id;
+use crate::invoicing::invoice::StateCountry;
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 
@@ -17,6 +18,8 @@ pub(crate) struct Client {
     pub(crate) address_state: Option<String>,
     pub(crate) address_zip: Option<String>,
     pub(crate) address_country: Option<String>,
+    //IANA timezone string "America/Los_Angeles"
+    pub(crate) timezone: Option<String>,
 }
 //check if client_id exists in database
 pub async fn client_exists(client_id: &str, database: &sqlx::PgPool) -> Result<bool, sqlx::Error> {
@@ -38,10 +41,7 @@ pub async fn client_from_booking(
 ) -> Result<String, sqlx::Error> {
     //pull up booking request from given booking_id
     let booking_info = sqlx::query!(
-        r#"SELECT first_name,
-        last_name,
-        phone,
-        email
+        r#"SELECT first_name, last_name, phone, email, timezone
         FROM main.booking_requests WHERE booking_id = $1"#,
         booking_id
     )
@@ -54,8 +54,8 @@ pub async fn client_from_booking(
 
             //tries to insert a new client into the database, if it already exists, returns the client_id
             let client_data = sqlx::query!(
-                r#"INSERT INTO main.clients (client_id, first_name, last_name, phone, email, created_at)
-                   VALUES ($1, $2, $3, $4, $5, $6)
+                r#"INSERT INTO main.clients (client_id, first_name, last_name, phone, email, timezone, created_at)
+                   VALUES ($1, $2, $3, $4, $5, $6, $7)
                    ON CONFLICT (email)
                    DO UPDATE SET email = clients.email
                    RETURNING client_id;"#,
@@ -64,6 +64,7 @@ pub async fn client_from_booking(
                 booking_data.last_name,
                 booking_data.phone,
                 booking_data.email,
+                booking_data.timezone,
                 OffsetDateTime::now_utc(),
             )
                 .fetch_optional(client)
@@ -80,7 +81,7 @@ pub async fn update_client_address(
     client_id: &str,
     address_street: &str,
     address_city: &str,
-    address_state: &str,
+    address_state: Option<StateCountry>,
     address_zip: &str,
     address_country: &str,
     database: &sqlx::PgPool,
@@ -94,7 +95,16 @@ pub async fn update_client_address(
         WHERE client_id = $6"#,
         address_street,
         address_city,
-        address_state,
+        //unnecessarily complicated way to convert an empty State into a postgres NULL value
+        Some(
+            address_state
+                .unwrap_or(StateCountry {
+                    value: "".into(),
+                    label: "".into()
+                })
+                .value
+        )
+        .filter(|v| !v.is_empty()),
         address_zip,
         address_country,
         client_id,

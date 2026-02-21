@@ -100,6 +100,17 @@ export default function ViewInvoice() {
       minute: "2-digit",
     });
   }
+  //prints out the current invoice
+  async function print_invoice(invoice_id: string) {
+    const response = await fetch(API_URL + `/invoicing/print/${invoice_id}`, {
+      // This ensures cookies/authorization headers are sent
+      credentials: "include",
+    });
+
+    if (!response.ok) throw new Error("Network response was not ok");
+
+    console.log(response);
+  }
 
   if (isLoading)
     return (
@@ -122,10 +133,20 @@ export default function ViewInvoice() {
       <>
         <div className="flex items-start pl-[3vw] md:pl-[10vw] flex-col">
           <h1>INVOICE #{invoice?.invoice.invoice_number}</h1>
-
-          <Link href={`/admin/invoicing/edit/${invoice_id}`} passHref>
-            <button className="border-2">EDIT</button>
-          </Link>
+          <div className="flex gap-4">
+            <Link href={`/admin/invoicing/edit/${invoice_id}`} passHref>
+              <button className="border-2">EDIT</button>
+            </Link>
+            <button
+              className="border-2"
+              onClick={() => {
+                window.open(API_URL + `/invoicing/print/${invoice_id}`);
+                //print_invoice(invoice?.invoice.invoice_id);
+              }}
+            >
+              PRINT
+            </button>
+          </div>
         </div>
 
         <div className="flex justify-center  mx-10  mb-80 p-6 border-2 items-center mt-30 flex-col ">
@@ -178,7 +199,7 @@ export default function ViewInvoice() {
             <tbody className="">
               {invoice?.invoice_items?.map(
                 (item: InvoiceItem, index: number) => (
-                  <tr key={item.invoice_item_id}>
+                  <tr className="text-center" key={item.invoice_item_id}>
                     <td>{item.description}</td>
                     <td>{item.quantity}</td>
                     <td>${item.unit_price}</td>
@@ -187,9 +208,8 @@ export default function ViewInvoice() {
               )}
             </tbody>
           </table>
-          <h2 className="justify-end items-end">
-            Subtotal: {invoice?.invoice.amount_subtotal}
-          </h2>
+          <h2 className="">Subtotal: {invoice?.invoice.amount_subtotal}</h2>
+          <h2 className="">Tax: {invoice?.invoice.amount_tax * 100}%</h2>
           <span className="h-6" />
           <h2>Due Date: {due_date}</h2>
           <span className="h-6" />

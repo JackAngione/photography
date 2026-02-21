@@ -22,6 +22,16 @@ const evaMatisse = localFont({
   variable: "--font-eva-matisse",
   weight: "100",
 });
+const maison_galliard = localFont({
+  src: "../../public/fonts/maison-galliard-serif.otf",
+  variable: "--font-maison-galliard",
+  weight: "100",
+});
+const jetbrains_mono = localFont({
+  src: "../../public/fonts/JetBrainsMono-Medium.woff2",
+  variable: "--font-maison-galliard",
+  weight: "500",
+});
 
 export const metadata: Metadata = {
   title: "Jack Angione Photography",
@@ -33,7 +43,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${evangelion.variable} ${evaMatisse.variable}`}>
+    <html
+      lang="en"
+      className={`${maison_galliard.variable}  ${evangelion.variable} ${evaMatisse.variable}`}
+    >
       <body>
         <AuthProvider>
           <AnaglyphShadow>

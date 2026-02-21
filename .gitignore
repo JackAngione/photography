@@ -42,3 +42,4 @@ next-env.d.ts
 /backend/target
 /backend/.idea
 *.avif
+/backend/src/invoicing/typst

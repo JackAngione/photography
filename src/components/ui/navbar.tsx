@@ -7,20 +7,22 @@ import Invoicing from "@/app/admin/invoicing/page";
 export default function Navbar() {
   const { logout } = useAuth();
   return (
-    <div className="flex justify-between">
+    <div className="flex justify-end pb-4">
       <AuthGuard>
-        <nav className="flex flex-col justify-center items-start pl-8">
-          <div className="flex gap-10">
-            <Link className="hover:text-accent" href="/admin/booking">
-              Booking
-            </Link>
-            <Link className="hover:text-accent" href="/admin/invoicing">
-              Invoicing
-            </Link>
-          </div>
-
-          <button className="hover:text-accent " onClick={logout}>
-            Logout
+        <nav className="flex flex-col items-end pr-12">
+          <p className="text-accent">-ADMIN-</p>
+          <Link className="hover:text-accent" href="/admin/booking">
+            Booking
+          </Link>
+          <Link className="hover:text-accent" href="/admin/invoicing">
+            Invoicing
+          </Link>
+          {/*TODO make logout a link to page that auto logs out,then remove use client from nav*/}
+          <button
+            className="hover:text-accent p-0! border-none "
+            onClick={logout}
+          >
+            LOGOUT
           </button>
         </nav>
       </AuthGuard>
