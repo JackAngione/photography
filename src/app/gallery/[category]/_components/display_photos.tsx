@@ -29,10 +29,14 @@ export default function DisplayPhotos({
           <img
             src={`${API_URL}/photo/${category}/low/${photo}`}
             alt={`photo`}
+            loading="lazy"
             className={"w-full z-1 h-full object-cover "}
             onClick={() => {
               setShowPreview(true);
               setSelectedPhoto(photo);
+            }}
+            onLoad={() => {
+              console.log(photo + " loaded");
             }}
           />
         </div>
@@ -47,7 +51,7 @@ export default function DisplayPhotos({
           }}
         >
           <img
-            src={`${API_URL}/photo/${category}/low/${selectedPhoto}`}
+            src={`${API_URL}/photo/${category}/high/${selectedPhoto}`}
             alt={`photo`}
             className={"max-w-[80vw] max-h-[80vh] z-0"}
           />

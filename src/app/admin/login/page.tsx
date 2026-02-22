@@ -75,7 +75,7 @@ export default function Page() {
           className="border-2 outline-none focus:border-accent"
           onChange={(e) => setPassword(e.target.value)}
         />
-        <button className="border-2 !py-1" onClick={adminLogin}>
+        <button className="border-2 py-1!" onClick={adminLogin}>
           login
         </button>
       </div>

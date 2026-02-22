@@ -1,5 +1,4 @@
 "use client";
-import Image from "next/image";
 import useSWR from "swr";
 import Link from "next/link";
 import { Square } from "ldrs/react";

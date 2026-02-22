@@ -12,9 +12,21 @@
     font-style: normal;
     src: url("/fonts/EVA-Matisse_Classic.ttf") format("truetype");
 }
+@font-face {
+    font-family: maison-galliard-serif;
+    font-weight: 100;
+    font-style: normal;
+    src: url("/fonts/maison-galliard-serif.otf") format("opentype");
+}
+@font-face {
+    font-family: JetBrainsMono;
+    font-weight: auto;
+    src: url("/fonts/JetBrainsMono-Medium.woff2") format("woff2");
+}
 @theme {
     --font-eva: "evangelion";
     --font-matisse: "EVA-Matisse_Standard";
+    --font-maison-galliard: "maison-galliard-serif";
     --color-background: #000000;
     --color-foreground: #ffffff;
     /*--color-foreground: #cdcdcd;*/
@@ -25,11 +37,11 @@
 
 button {
   /*transition: border-color 2s;*/
-  @apply cursor-pointer px-6 hover:text-accent py-3;
+  @apply cursor-pointer px-6 hover:text-accent py-3 border-2;
 }
 
 h1{
-  @apply text-7xl sm:text-8xl md:text-9xl font-eva ;
+  @apply text-7xl sm:text-8xl lg:text-9xl  font-maison-galliard ;
 }
 a {
 @apply  hover:text-accent text-foreground no-underline;
