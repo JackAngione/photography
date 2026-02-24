@@ -2,7 +2,6 @@
 import Link from "next/link";
 import { useAuth } from "@/components/AuthContext";
 import AuthGuard from "@/components/AuthGuard";
-import Invoicing from "@/app/admin/invoicing/page";
 
 export default function Navbar() {
   const { logout } = useAuth();
@@ -12,10 +11,13 @@ export default function Navbar() {
         <nav className="flex flex-col items-end pr-12">
           <p className="text-accent">-ADMIN-</p>
           <Link className="hover:text-accent" href="/admin/booking">
-            Booking
+            BOOKING
           </Link>
           <Link className="hover:text-accent" href="/admin/invoicing">
-            Invoicing
+            INVOICING
+          </Link>
+          <Link className="hover:text-accent" href="/admin/clientele">
+            CLIENTELE
           </Link>
           {/*TODO make logout a link to page that auto logs out,then remove use client from nav*/}
           <button

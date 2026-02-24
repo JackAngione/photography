@@ -43,6 +43,9 @@ button {
 h1{
   @apply text-7xl sm:text-8xl lg:text-9xl  font-maison-galliard ;
 }
+input{
+    @apply px-1
+}
 a {
 @apply  hover:text-accent text-foreground no-underline;
 }

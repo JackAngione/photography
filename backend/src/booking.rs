@@ -11,15 +11,6 @@ use crate::invoicing::invoice::ApiResponse;
 use time::OffsetDateTime;
 //
 
-//data coming in from user form
-#[derive(Serialize, Deserialize)]
-pub struct ClientNew {
-    first_name: String,
-    last_name: String,
-    phone: String,
-    email: String,
-}
-
 #[derive(Debug, Deserialize, Serialize, Clone)]
 struct Category {
     value: String,
@@ -69,6 +60,7 @@ pub(crate) async fn generate_id(client: &sqlx::PgPool) -> String {
                 })
                 .collect()
         };
+        //make sure id isn't already in use by an invoice, booking request, or client
         let invoice_test = sqlx::query!(
             r#"
             SELECT EXISTS (

@@ -1,7 +1,7 @@
 extern crate core;
 mod auth;
 mod booking;
-mod client;
+mod clientele;
 mod invoicing;
 mod photo_file_ops;
 
@@ -99,10 +99,13 @@ async fn main() {
         .with_expiry(Expiry::OnInactivity(Duration::hours(24)));
 
     let app = Router::new()
+        //INVOICING ROUTES
         .route("/invoicing/view/{invoice_id}", get(view_invoice))
         .route("/invoicing/edit/{invoice_id}", post(edit_invoice))
         .route("/invoicing/find", get(find_invoice))
         .route("/invoicing/create", post(create_invoice))
+        .route("/invoicing/print/{invoice_id}", get(generate_pdf))
+        //BOOKING ROUTES
         .route("/booking/get_pending", get(booking::get_pending_bookings))
         .route("/booking/view/{booking_id}", get(booking::view_booking))
         .route("/booking/find", get(booking::find_booking))
@@ -110,17 +113,23 @@ async fn main() {
             "/booking/change_completion/{booking_id}",
             post(booking::change_completion_status),
         )
-        .route("/invoicing/print/{invoice_id}", get(generate_pdf))
+        //CLIENTELE ROUTES
+        .route("/clientele/find", get(clientele::find_client))
+        .route("/clientele/view/{client_id}", get(clientele::view_client))
+        .route("/clientele/edit/{client_id}", post(clientele::edit_invoice))
+        .route("/clientele/create", post(clientele::create_client))
+        //AUTHENTICATION ROUTES
         .route("/auth/verify", get(|| async { StatusCode::OK }))
         .route_layer(middleware::from_fn(auth_gaurd)) // Protect routes above
+        .route("/auth/login", post(auth::login))
+        .route("/auth/logout", post(auth::logout))
+        //PUBLIC ROUTES
         .route("/getPhotoCategories", get(photo_file_ops::get_categories))
         .route(
             "/category/{category}",
             get(photo_file_ops::get_category_photos),
         )
         .route("/booking/create", post(booking::create_booking_request))
-        .route("/auth/login", post(auth::login))
-        .route("/auth/logout", post(auth::logout))
         .layer(session_layer)
         .layer(cors)
         .nest_service("/photo", serve_images) // Static file route

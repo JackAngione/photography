@@ -2,7 +2,7 @@
 import AuthGuard from "@/components/AuthGuard";
 import { API_URL } from "@/_utilities/API_UTILS";
 import { useQuery } from "@tanstack/react-query";
-import { useParams } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import { z } from "zod";
 import "./edit_invoice.css";
 import React, { useMemo } from "react";
@@ -11,6 +11,7 @@ import states_list from "@/_utilities/us_states.json";
 import { Controller, useFieldArray, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import Select from "react-select";
+import Link from "next/link";
 
 export type InvoiceItem = {
   invoice_id: string;
@@ -56,6 +57,7 @@ type PageProps = {
 };
 
 export default function EditInvoice() {
+  const router = useRouter();
   const params = useParams<{ invoice_id: string }>();
   const invoice_id = params.invoice_id;
 
@@ -238,6 +240,7 @@ export default function EditInvoice() {
           if (res.ok) {
             let json = await res.json();
             alert(json.message);
+            router.push("/admin/invoicing/view/" + invoice_id);
           } else {
             throw new Error();
           }
@@ -554,9 +557,12 @@ export default function EditInvoice() {
         />
 
         <span className="h-10"></span>
-        <button className="border-2" type="submit">
-          Save Invoice
-        </button>
+        <div className="flex justify-center items-center gap-4">
+          <Link href={`/admin/invoicing/view/${invoice_id}`}>Cancel</Link>
+          <button className="border-2" type="submit">
+            Save Invoice
+          </button>
+        </div>
       </form>
     </AuthGuard>
   );

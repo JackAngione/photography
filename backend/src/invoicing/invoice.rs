@@ -1,5 +1,5 @@
-use crate::client::{Client, client_exists};
-use crate::{AppState, booking, client, invoicing};
+use crate::clientele::{Client, client_exists};
+use crate::{AppState, booking, clientele, invoicing};
 use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::{Json, debug_handler};
@@ -138,7 +138,7 @@ pub async fn create_invoice(
                     }),
                 ));
             }
-            client::client_from_booking(&booking_id, &client)
+            clientele::create_client_from_booking(&booking_id, &client)
                 .await
                 .unwrap()
         }
@@ -158,7 +158,7 @@ pub async fn create_invoice(
         || payload.address_zip.is_some()
         || payload.address_country.value != ""
     {
-        client::update_client_address(
+        clientele::update_client_address(
             &client_id,
             &payload.address_street.unwrap(),
             &payload.address_city.unwrap(),
@@ -481,7 +481,7 @@ pub(crate) async fn edit_invoice(
         && payload.address_zip.is_some()
         && payload.address_country.value != ""
     {
-        client::update_client_address(
+        clientele::update_client_address(
             &payload.client_id,
             &payload.address_street.unwrap(),
             &payload.address_city.unwrap(),
@@ -502,7 +502,6 @@ pub(crate) async fn edit_invoice(
     }
 
     //CALCULATE TOTALS
-
     let mut subtotal = Decimal::zero();
     //calculate subtotal
     for item in &payload.invoice_items {

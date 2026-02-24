@@ -14,7 +14,7 @@ export default function BookingRequestPreview({
     <AuthGuard>
       <div className="flex-col border-2 p-6 flex justify-center gap-4 items-start ">
         <div className="flex-col">
-          <p className="text-xl">Booking #: {request.booking_number}</p>
+          <p className="text-xl">Booking #{request.booking_number}</p>
           <p>Booking_ID: {request.booking_id}</p>
 
           <p>Created at: {new Date(request.created_at).toLocaleString()}</p>

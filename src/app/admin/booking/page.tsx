@@ -10,10 +10,10 @@ export default function BookingRequests() {
       </div>
       <div className="flex-col flex mt-30 px-8 justify-center gap-5 items-center">
         <Link className="border-2 p-1.5" href="/admin/booking/pending">
-          Pending
+          PENDING
         </Link>
         <Link className="border-2 p-1.5" href="/admin/booking/find">
-          Find
+          FIND
         </Link>
       </div>
     </AuthGuard>
